@@ -20,11 +20,11 @@ except Exception:
 # ==========================================================
 # CONFIG + BANK DESIGN (Premium)
 # + 5 mejoras:
-#   1) Transición suave entre páginas (fade/slide)
-#   2) Skeleton loaders (shimmer)
-#   3) Header sticky
-#   4) Tooltips tipo banca (ⓘ)
-#   5) Empty states premium
+#   1) Transición suave entre páginas (fade/slide)  ✅ (sin wrappers HTML cruzados)
+#   2) Skeleton loaders (shimmer)                  ✅ (1 solo markdown)
+#   3) Header sticky                               ✅
+#   4) Tooltips tipo banca (ⓘ)                     ✅
+#   5) Empty states premium                         ✅
 # ==========================================================
 st.set_page_config(page_title="TR Bank · Mi dinero (PDF)", page_icon="🏦", layout="wide")
 
@@ -34,16 +34,12 @@ st.markdown(
 /* ==========================================================
    BANK APP THEME (Premium)
    ========================================================== */
-
-/* ----- Ocultar header/menú/footer de Streamlit ----- */
 header[data-testid="stHeader"] { display: none; }
 #MainMenu { visibility: hidden; }
 footer { visibility: hidden; }
 
-/* Layout */
 .block-container { padding-top: 0.8rem; padding-bottom: 2.2rem; max-width: 1320px; }
 
-/* Fondo “banco”: gradientes + grid + blobs */
 html, body, [data-testid="stAppViewContainer"]{ height: 100%; }
 [data-testid="stAppViewContainer"]{
   background:
@@ -55,7 +51,6 @@ html, body, [data-testid="stAppViewContainer"]{ height: 100%; }
   color: rgba(245,248,255,0.92) !important;
 }
 
-/* Grid sutil */
 [data-testid="stAppViewContainer"]::before{
   content:"";
   position: fixed;
@@ -69,7 +64,6 @@ html, body, [data-testid="stAppViewContainer"]{ height: 100%; }
   opacity: 0.18;
 }
 
-/* Blobs */
 @keyframes floaty {
   0%   { transform: translate3d(0,0,0) scale(1); opacity: .65; }
   50%  { transform: translate3d(20px,-12px,0) scale(1.03); opacity: .78; }
@@ -88,7 +82,6 @@ html, body, [data-testid="stAppViewContainer"]{ height: 100%; }
 .blob.b2{ right: -180px; top: 40px; background: rgba(80,255,220,0.13); animation-duration: 16s; }
 .blob.b3{ left: 35%; bottom: -240px; background: rgba(255,120,200,0.10); animation-duration: 18s; }
 
-/* Sidebar */
 section[data-testid="stSidebar"]{
   background: rgba(255,255,255,0.02) !important;
   border-right: 1px solid rgba(255,255,255,0.10);
@@ -96,13 +89,11 @@ section[data-testid="stSidebar"]{
 }
 section[data-testid="stSidebar"] > div{ padding-top: 1.0rem; }
 
-/* Tipografía */
 h1,h2,h3{ letter-spacing: -0.4px; color: rgba(245,248,255,0.96) !important; }
 p, li, label, .stMarkdown, .stMarkdown * { color: rgba(245,248,255,0.90) !important; }
 .small { font-size: 12px; opacity: .82; }
 .muted { opacity: .88; }
 
-/* Cards glass */
 .glass{
   position: relative;
   z-index: 2;
@@ -117,7 +108,6 @@ p, li, label, .stMarkdown, .stMarkdown * { color: rgba(245,248,255,0.90) !import
 .glass .s{ font-size: 12px; opacity: .86; margin-top: 4px; }
 .hr{ height: 1px; background: rgba(255,255,255,0.10); margin: 14px 0; border-radius: 999px; }
 
-/* Header bank bar */
 .bankbar{ display:flex; align-items:center; justify-content:space-between; gap: 12px; }
 .brand{ display:flex; align-items:center; gap: 10px; }
 .brand .mark{
@@ -141,7 +131,6 @@ p, li, label, .stMarkdown, .stMarkdown * { color: rgba(245,248,255,0.90) !import
   color: rgba(245,248,255,0.92) !important;
 }
 
-/* KPI row */
 .kpis { display:grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
 @media (max-width: 1200px){ .kpis { grid-template-columns: repeat(2, 1fr); } }
 .kpi{
@@ -155,7 +144,6 @@ p, li, label, .stMarkdown, .stMarkdown * { color: rgba(245,248,255,0.90) !import
 .kpi .kv{ font-size: 22px; font-weight: 950; letter-spacing:-0.5px; color: rgba(245,248,255,0.98) !important; }
 .kpi .ks{ font-size: 12px; opacity: .78; margin-top: 6px; }
 
-/* FIX: st.metric legible */
 div[data-testid="stMetricLabel"]{ color: rgba(245,248,255,0.78) !important; }
 div[data-testid="stMetricValue"]{
   color: rgba(245,248,255,0.98) !important;
@@ -165,7 +153,6 @@ div[data-testid="stMetricValue"]{
 }
 div[data-testid="stMetricDelta"]{ color: rgba(245,248,255,0.82) !important; }
 
-/* Alerts */
 div[data-testid="stAlert"]{
   border-radius: 16px;
   border: 1px solid rgba(255,255,255,0.12);
@@ -174,7 +161,6 @@ div[data-testid="stAlert"]{
 }
 div[data-testid="stAlert"] p, div[data-testid="stAlert"] span{ color: rgba(245,248,255,0.92) !important; }
 
-/* Plotly container */
 div[data-testid="stPlotlyChart"]{ border-radius: 16px; overflow: hidden; }
 
 /* ==========================================================
@@ -216,13 +202,16 @@ div[data-testid="stPlotlyChart"]{ border-radius: 16px; overflow: hidden; }
 .bank-table .nowrap{ white-space: nowrap; }
 
 /* ==========================================================
-   (1) Transiciones suaves: contenido de página
+   (1) Transiciones suaves (sin wrappers HTML “abiertos”)
+   Se animan las piezas principales al re-renderizar.
    ========================================================== */
 @keyframes pageIn {
   from { opacity: 0; transform: translate3d(0, 10px, 0); filter: blur(2px); }
   to   { opacity: 1; transform: translate3d(0, 0, 0); filter: blur(0); }
 }
-.page-anim { animation: pageIn 260ms ease-out; }
+.glass, .kpi, .bank-table-wrap, div[data-testid="stPlotlyChart"], div[data-testid="stAlert"]{
+  animation: pageIn 260ms ease-out;
+}
 
 /* ==========================================================
    (2) Skeleton loaders (shimmer)
@@ -319,7 +308,6 @@ div[data-testid="stPlotlyChart"]{ border-radius: 16px; overflow: hidden; }
     unsafe_allow_html=True,
 )
 
-
 # =========================
 # Helpers
 # =========================
@@ -343,9 +331,9 @@ def premium_empty(emoji: str, title: str, msg: str):
         unsafe_allow_html=True,
     )
 
-def skeleton_dashboard():
-    st.markdown(
-        """
+def skeleton_html() -> str:
+    # IMPORTANTE: HTML completo en UNA pieza (para evitar “cargas pegadas”)
+    return """
 <div class="skel-wrap">
   <div class="skel-line" style="width: 38%;"></div>
   <div class="skel-line" style="width: 62%;"></div>
@@ -359,9 +347,7 @@ def skeleton_dashboard():
   <div style="height: 12px;"></div>
   <div class="skel-card" style="height: 260px;"></div>
 </div>
-""",
-        unsafe_allow_html=True,
-    )
+"""
 
 def _apply_plotly_bank_theme(fig):
     if fig is None:
@@ -420,7 +406,6 @@ def render_bank_table(
 
     df2 = df.copy()
 
-    # Formateo numérico (2 decimales)
     for c in numeric_cols:
         if c in df2.columns:
             df2[c] = pd.to_numeric(df2[c], errors="coerce").map(lambda v: "—" if pd.isna(v) else f"{v:,.2f}")
@@ -693,7 +678,7 @@ def parse_tr_pdf_transactions(pdf_bytes: bytes) -> pd.DataFrame:
 
 
 # =========================
-# CATEGORÍAS (igual)
+# CATEGORÍAS
 # =========================
 def category_simple(row_type: str, desc: str) -> str:
     t = (row_type or "").lower()
@@ -717,7 +702,7 @@ def category_simple(row_type: str, desc: str) -> str:
 
 
 # =========================
-# ACTIVOS (igual)
+# ACTIVOS
 # =========================
 def compute_asset_realized_pnl(tx: pd.DataFrame) -> pd.DataFrame:
     op = tx[tx["type"].astype(str).str.lower().eq("operar")].copy()
@@ -781,7 +766,7 @@ def compute_asset_realized_pnl(tx: pd.DataFrame) -> pd.DataFrame:
 
 
 # =========================
-# GRÁFICOS (igual)
+# GRÁFICOS
 # =========================
 def fig_in_out_net(total_in: float, total_out: float, net: float):
     if not PLOTLY_OK:
@@ -945,20 +930,6 @@ with st.sidebar:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-# ==========================================================
-# (1) Transición suave: solo cuando cambia la página
-# ==========================================================
-if "prev_page" not in st.session_state:
-    st.session_state.prev_page = page
-if "anim_nonce" not in st.session_state:
-    st.session_state.anim_nonce = 0
-if page != st.session_state.prev_page:
-    st.session_state.anim_nonce += 1
-    st.session_state.prev_page = page
-
-anim_class = "page-anim"
-
-
 if not up:
     premium_empty("⬅️", "Sube tu PDF para empezar", "En el panel izquierdo, carga el extracto de Trade Republic.")
     st.stop()
@@ -966,23 +937,17 @@ if not up:
 pdf_bytes = up.getvalue()
 
 # ==========================================================
-# (2) Skeleton loader mientras parsea/calcula
+# (2) Skeleton loader robusto (se quita siempre)
 # ==========================================================
 sk = st.empty()
-sk.markdown(f'<div class="{anim_class}">', unsafe_allow_html=True)
-skeleton_dashboard()
-sk.markdown("</div>", unsafe_allow_html=True)
+sk.markdown(skeleton_html(), unsafe_allow_html=True)
 
-with st.spinner("Leyendo tu PDF…"):
-    try:
+try:
+    with st.spinner("Leyendo tu PDF…"):
         tx = parse_tr_pdf_transactions(pdf_bytes)
-    except Exception as e:
-        sk.empty()
-        st.error("No he podido leer el PDF sin errores. Prueba con otro extracto o vuelve a descargarlo.")
-        st.exception(e)
-        st.stop()
-
-sk.empty()
+finally:
+    # Pase lo que pase (éxito o error), se borra el skeleton
+    sk.empty()
 
 if tx.empty:
     premium_empty("📄", "No encuentro transacciones", "Asegúrate de que el PDF incluye 'TRANSACCIONES DE CUENTA'.")
@@ -1105,12 +1070,9 @@ st.markdown(
 st.write("")
 st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
 
-
 # ==========================================================
-# CONTENIDO (con transición)
+# CONTENIDO
 # ==========================================================
-st.markdown(f'<div class="{anim_class}">', unsafe_allow_html=True)
-
 if page == "Resumen":
     col1, col2 = st.columns([1.2, 0.8], gap="large")
 
@@ -1177,7 +1139,7 @@ elif page == "Movimientos":
     st.markdown("</div>", unsafe_allow_html=True)
 
 elif page == "PRO":
-    st.markdown(f'<div class="glass"><div class="t">📊 PRO {tip("Vista más analítica: gasto por mes desglosado por categoría. Útil si quieres ‘controlar hábitos’ o detectar meses raros.")}</div><div class="s">Más detalle (sin cambiar el contenido).</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="glass"><div class="t">📊 PRO {tip("Vista más analítica: gasto por mes desglosado por categoría.")}</div><div class="s">Más detalle (sin cambiar el contenido).</div>', unsafe_allow_html=True)
     fig = fig_stack_monthly_out_by_category(txg_f, top_n=8)
     if fig is not None:
         st.plotly_chart(fig, use_container_width=True)
@@ -1198,11 +1160,11 @@ else:  # Activos & Detalles
     colA, colB = st.columns([1.05, 0.95], gap="large")
 
     with colA:
-        st.markdown(f'<div class="glass"><div class="t">📦 Activos (si operaste) {tip("No usa precios actuales. Solo lo ‘cerrado’ (ventas) y una estimación de lo que queda con compras/ventas del PDF.")}</div><div class="s">Resultado ya cerrado y estimación de lo que queda.</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="glass"><div class="t">📦 Activos (si operaste) {tip("No usa precios actuales. Solo lo ‘cerrado’ (ventas) y estimación con compras/ventas del PDF.")}</div><div class="s">Resultado ya cerrado y estimación de lo que queda.</div>', unsafe_allow_html=True)
         if show_assets:
             assets = compute_asset_realized_pnl(tx_f2)
             if assets.empty:
-                premium_empty("📦", "No veo operaciones de inversión", "En este rango no hay ‘Operar’ con ISIN suficiente para calcular por activo.")
+                premium_empty("📦", "No veo operaciones de inversión", "En este rango no hay ‘Operar’ con ISIN suficiente.")
             else:
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Activos", f"{len(assets)}")
@@ -1245,7 +1207,7 @@ else:  # Activos & Detalles
         st.markdown("</div>", unsafe_allow_html=True)
 
     with colB:
-        st.markdown(f'<div class="glass soft"><div class="t">🔎 Detalles {tip("Sirve para auditar el parseo: fecha/tipo/categoría/importe y una descripción recortada.")}</div><div class="s">Tabla completa (solo si quieres comprobar líneas del PDF).</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="glass soft"><div class="t">🔎 Detalles {tip("Audita el parseo: fecha/tipo/categoría/importe y descripción recortada.")}</div><div class="s">Tabla completa (solo si quieres comprobar líneas del PDF).</div>', unsafe_allow_html=True)
         if show_details:
             details = tx_f2[["date", "type", "Categoria", "cashflow", "balance", "isin", "asset", "quantity", "desc"]].copy()
             details["date"] = details["date"].astype(str).str.replace(" 00:00:00", "", regex=False)
@@ -1259,9 +1221,6 @@ else:  # Activos & Detalles
         else:
             premium_empty("🔎", "Detalles ocultos", "Activa ‘Ver tabla completa’ en el panel lateral.")
         st.markdown("</div>", unsafe_allow_html=True)
-
-st.markdown("</div>", unsafe_allow_html=True)  # cierre page-anim
-
 
 # ==========================================================
 # DESCARGA + NOTA
