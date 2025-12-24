@@ -17,27 +17,30 @@ except Exception:
 
 
 # ==========================================================
-# CONFIG + "BANK APP" DESIGN (misma info, mejor legibilidad)
+# CONFIG + BANK DESIGN (FIX: tablas + barra superior blanca)
 # ==========================================================
 st.set_page_config(page_title="TR Bank · Mi dinero (PDF)", page_icon="🏦", layout="wide")
 
 st.markdown(
     """
 <style>
-/* =========================
+/* ==========================================================
    BANK APP THEME (Premium)
-   + FIXES: legibilidad + charts integrados
-   ========================= */
+   FIXES:
+   - Oculta la barra superior blanca de Streamlit (header)
+   - Tablas (st.dataframe) con estilo oscuro integrado
+   - Tipos/labels siempre legibles
+   ========================================================== */
+
+/* ----- Ocultar header/menú/footer de Streamlit (el “cuadro blanco” arriba) ----- */
+header[data-testid="stHeader"] { display: none; }
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
 
 /* Layout */
-.block-container { padding-top: 1.0rem; padding-bottom: 2.2rem; max-width: 1320px; }
+.block-container { padding-top: 0.8rem; padding-bottom: 2.2rem; max-width: 1320px; }
 
-/* Forzamos color de texto legible en todo el documento */
-html, body, [data-testid="stAppViewContainer"]{
-  color: rgba(245,248,255,0.92) !important;
-}
-
-/* Fondo "de banco": gradientes + grid + blobs */
+/* Fondo “banco”: gradientes + grid + blobs */
 html, body, [data-testid="stAppViewContainer"]{ height: 100%; }
 [data-testid="stAppViewContainer"]{
   background:
@@ -46,6 +49,7 @@ html, body, [data-testid="stAppViewContainer"]{ height: 100%; }
     radial-gradient(1000px 700px at 50% 92%, rgba(255,120,200,0.10) 0%, rgba(0,0,0,0) 60%),
     linear-gradient(180deg, rgba(10,16,28,1) 0%, rgba(8,12,22,1) 45%, rgba(8,10,18,1) 100%);
   position: relative;
+  color: rgba(245,248,255,0.92);
 }
 
 /* Grid sutil */
@@ -62,23 +66,16 @@ html, body, [data-testid="stAppViewContainer"]{ height: 100%; }
   opacity: 0.18;
 }
 
-/* Blobs animados */
+/* Blobs */
 @keyframes floaty {
   0%   { transform: translate3d(0,0,0) scale(1); opacity: .65; }
   50%  { transform: translate3d(20px,-12px,0) scale(1.03); opacity: .78; }
   100% { transform: translate3d(0,0,0) scale(1); opacity: .65; }
 }
-.bank-blobs{
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-}
+.bank-blobs{ position: fixed; inset: 0; pointer-events: none; z-index: 0; }
 .blob{
   position: absolute;
-  width: 540px;
-  height: 540px;
-  filter: blur(42px reminding); /* harmless if ignored */
+  width: 540px; height: 540px;
   filter: blur(42px);
   border-radius: 40% 60% 45% 55% / 55% 45% 55% 45%;
   animation: floaty 12s ease-in-out infinite;
@@ -88,15 +85,15 @@ html, body, [data-testid="stAppViewContainer"]{ height: 100%; }
 .blob.b2{ right: -180px; top: 40px; background: rgba(80,255,220,0.13); animation-duration: 16s; }
 .blob.b3{ left: 35%; bottom: -240px; background: rgba(255,120,200,0.10); animation-duration: 18s; }
 
-/* Sidebar tipo banca */
+/* Sidebar */
 section[data-testid="stSidebar"]{
   background: rgba(255,255,255,0.02) !important;
   border-right: 1px solid rgba(255,255,255,0.10);
   backdrop-filter: blur(10px);
 }
-section[data-testid="stSidebar"] > div{ padding-top: 1.1rem; }
+section[data-testid="stSidebar"] > div{ padding-top: 1.0rem; }
 
-/* Tipografía */
+/* Tipografía general: forzar legibilidad */
 h1,h2,h3{ letter-spacing: -0.4px; color: rgba(245,248,255,0.96) !important; }
 p, li, label, .stMarkdown, .stMarkdown * { color: rgba(245,248,255,0.90) !important; }
 .small { font-size: 12px; opacity: .82; }
@@ -105,7 +102,7 @@ p, li, label, .stMarkdown, .stMarkdown * { color: rgba(245,248,255,0.90) !import
 /* Cards glass */
 .glass{
   position: relative;
-  z-index: 1;
+  z-index: 2;
   border: 1px solid rgba(255,255,255,0.10);
   background: rgba(255,255,255,0.035);
   border-radius: 18px;
@@ -155,51 +152,57 @@ p, li, label, .stMarkdown, .stMarkdown * { color: rgba(245,248,255,0.90) !import
 .kpi .kv{ font-size: 22px; font-weight: 950; letter-spacing:-0.5px; color: rgba(245,248,255,0.98) !important; }
 .kpi .ks{ font-size: 12px; opacity: .78; margin-top: 6px; }
 
-/* Dataframe */
-div[data-testid="stDataFrame"]{
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.10);
-}
-
-/* Tabs */
-.stTabs [data-baseweb="tab-list"]{ gap: 6px; }
-.stTabs [data-baseweb="tab"]{
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 12px;
-  padding: 10px 12px;
-  color: rgba(245,248,255,0.92) !important;
-}
-.stTabs [aria-selected="true"]{ background: rgba(255,255,255,0.06); }
-
-/* Botones */
-.stButton > button, .stDownloadButton > button{
-  explains? /* ignored by browsers */
-  border-radius: 14px !important;
-  border: 1px solid rgba(255,255,255,0.14) !important;
-  background: rgba(255,255,255,0.06) !important;
-  color: rgba(245,248,255,0.92) !important;
-}
-
-/* ALERTAS: hacemos que se lean bien en fondo oscuro */
+/* Alerts */
 div[data-testid="stAlert"]{
   border-radius: 16px;
   border: 1px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.05);
   color: rgba(245,248,255,0.92) !important;
 }
-div[data-testid="stAlert"] p, div[data-testid="stAlert"] span{
-  color: rgba(245,248,255,0.92) !notice;
-  color: rgba(245,248,255,0.92) !important;
+div[data-testid="stAlert"] p, div[data-testid="stAlert"] span{ color: rgba(245,248,255,0.92) !important; }
+
+/* Plotly container */
+div[data-testid="stPlotlyChart"]{ border-radius: 16px; overflow: hidden; }
+
+/* ==========================================================
+   DATAFRAMES: “modo oscuro” para evitar el contraste blanco
+   (St.DataFrame de Streamlit usa elementos BaseWeb)
+   ========================================================== */
+div[data-testid="stDataFrame"]{
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  background: rgba(10,16,28,0.50) !important;
 }
 
-/* FIX: plots dentro de cards (evitar “caja blanca” excesiva) */
-div[data-testid="stPlotlyChart"]{
-  border-radius: 16px;
-  overflow: hidden;
-  explain: none;
+/* Contenedor interno */
+div[data-testid="stDataFrame"] [data-testid="stTable"]{
+  background: rgba(10,16,28,0.50) !important;
 }
+
+/* Cabecera + celdas */
+div[data-testid="stDataFrame"] thead tr th{
+  background: rgba(255,255,255,0.04) !important;
+  color: rgba(245,248,255,0.92) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.10) !important;
+}
+div[data-testid="stDataFrame"] tbody tr td{
+  background: rgba(0,0,0,0) !important;
+  color: rgba(245,248,255,0.90) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+}
+
+/* Alternancia sutil */
+div[data-testid="stDataFrame"] tbody tr:nth-child(odd) td{
+  background: rgba(255,255,255,0.015) !important;
+}
+
+/* Scrollbar (chrome) */
+div[data-testid="stDataFrame"] ::-webkit-scrollbar{ height: 10px; width: 10px; }
+div[data-testid="stDataFrame"] ::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,0.14); border-radius: 999px;
+}
+div[data-testid="stDataFrame"] ::-webkit-scrollbar-track{ background: rgba(0,0,0,0); }
 </style>
 
 <div class="bank-blobs">
@@ -220,12 +223,7 @@ BANK_FONT = dict(
 )
 
 def _apply_plotly_bank_theme(fig):
-    """
-    Hace que los gráficos “se fundan” con el fondo glass:
-    - fondo transparente
-    - estilo dark
-    - tipografía y ejes con buen contraste
-    """
+    """Hace que Plotly se funda con el fondo glass (sin caja blanca)."""
     if fig is None:
         return None
     try:
@@ -257,8 +255,35 @@ def _apply_plotly_bank_theme(fig):
     return fig
 
 
+def style_df_dark(df: pd.DataFrame, money_cols: Optional[List[str]] = None) -> "pd.io.formats.style.Styler":
+    """
+    Estilo oscuro para tablas. Úsalo para evitar el “rectángulo blanco” en st.dataframe.
+    """
+    sty = df.style
+    base_bg = "rgba(10,16,28,0.45)"
+    header_bg = "rgba(255,255,255,0.05)"
+    grid = "rgba(255,255,255,0.08)"
+    txt = "rgba(245,248,255,0.90)"
+
+    sty = sty.set_table_styles(
+        [
+            {"selector": "table", "props": [("background-color", base_bg), ("color", txt), ("border", f"1px solid {grid}"), ("border-collapse", "collapse")]},
+            {"selector": "thead th", "props": [("background-color", header_bg), ("color", txt), ("border-bottom", f"1px solid {grid}")]},
+            {"selector": "tbody td", "props": [("border-bottom", f"1px solid rgba(255,255,255,0.06)"), ("color", txt)]},
+        ]
+    )
+
+    # alineación numérica (si procede)
+    if money_cols:
+        for c in money_cols:
+            if c in df.columns:
+                sty = sty.format({c: "{:,.2f}"})
+
+    return sty
+
+
 # =========================
-# PARSER (sin tocar el “tipo de datos”)
+# PARSER (mismo contenido)
 # =========================
 MONTHS = {
     "ene": 1, "feb": 2, "mar": 3, "abr": 4, "may": 5, "jun": 6,
@@ -594,7 +619,7 @@ def compute_asset_realized_pnl(tx: pd.DataFrame) -> pd.DataFrame:
 
 
 # =========================
-# GRÁFICOS (mismos tipos/datos) + THEME FIX
+# GRÁFICOS (igual) + theme
 # =========================
 def fig_in_out_net(total_in: float, total_out: float, net: float):
     if not PLOTLY_OK:
@@ -798,7 +823,7 @@ if tx.empty:
     )
     st.stop()
 
-# Postprocess (igual)
+# Postprocess
 tx = tx.copy()
 tx["cashflow"] = pd.to_numeric(tx["cashflow"], errors="coerce")
 tx["balance"] = pd.to_numeric(tx["balance"], errors="coerce")
@@ -829,7 +854,7 @@ txg_f = txg[(txg["date"].dt.date >= start_d) & (txg["date"].dt.date <= end_d)].c
 tx_f2 = tx.dropna(subset=["date"]).copy()
 tx_f2 = tx_f2[(tx_f2["date"].dt.date >= start_d) & (tx_f2["date"].dt.date <= end_d)].copy()
 
-# Métricas (igual)
+# Métricas
 total_in = float(tx_f2.loc[tx_f2["cashflow"] > 0, "cashflow"].sum(skipna=True))
 total_out = float(-tx_f2.loc[tx_f2["cashflow"] < 0, "cashflow"].sum(skipna=True))
 net = float(tx_f2["cashflow"].sum(skipna=True))
@@ -846,7 +871,7 @@ last_balance_val = float(tx_f2["balance"].dropna().iloc[-1]) if tx_f2["balance"]
 
 
 # ==========================================================
-# HEADER tipo “Home banca”
+# HEADER tipo “Home banca” (ahora se verá bien sin barra blanca)
 # ==========================================================
 st.markdown(
     f"""
@@ -895,7 +920,7 @@ st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
 
 
 # ==========================================================
-# CONTENIDO (mismo “qué” — ahora con charts integrados)
+# CONTENIDO (mismo contenido, pero tablas integradas)
 # ==========================================================
 if page == "Resumen":
     col1, col2 = st.columns([1.2, 0.8], gap="large")
@@ -958,7 +983,8 @@ elif page == "Movimientos":
     if big.empty:
         st.info("No hay suficientes movimientos con fecha/importe.")
     else:
-        st.dataframe(big, use_container_width=True, hide_index=True)
+        # tabla oscura
+        st.dataframe(style_df_dark(big), use_container_width=True, hide_index=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 elif page == "PRO":
@@ -971,16 +997,13 @@ elif page == "PRO":
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.write("")
-    with st.expander("Ver tabla de categorías netas (por demostrar el cálculo)"):
+    with st.expander("Ver tabla de categorías netas"):
         tbl = by_cat.sort_values()
         if tbl.empty:
             st.info("No hay datos por categoría.")
         else:
-            st.dataframe(
-                tbl.rename("€ neto").reset_index().rename(columns={"index": "Categoría"}),
-                use_container_width=True,
-                hide_index=True,
-            )
+            df_tbl = tbl.rename("€ neto").reset_index().rename(columns={"index": "Categoría"})
+            st.dataframe(style_df_dark(df_tbl), use_container_width=True, hide_index=True)
 
 else:  # Activos & Detalles
     colA, colB = st.columns([1.05, 0.95], gap="large")
@@ -997,18 +1020,28 @@ else:  # Activos & Detalles
                 c2.metric("Ganado/perdido ya cerrado", fmt_eur(assets["Ganado / perdido ya cerrado"].sum()))
                 c3.metric("Dinero metido (compras)", fmt_eur(assets["Dinero metido (compras)"].sum()))
 
+                show_assets_df = assets[
+                    [
+                        "Activo",
+                        "ISIN",
+                        "Dinero metido (compras)",
+                        "Dinero recuperado (ventas)",
+                        "Ganado / perdido ya cerrado",
+                        "Cantidad que te queda (aprox.)",
+                        "Coste medio (aprox.)",
+                    ]
+                ].copy()
+
                 st.dataframe(
-                    assets[
-                        [
-                            "Activo",
-                            "ISIN",
+                    style_df_dark(
+                        show_assets_df,
+                        money_cols=[
                             "Dinero metido (compras)",
                             "Dinero recuperado (ventas)",
                             "Ganado / perdido ya cerrado",
-                            "Cantidad que te queda (aprox.)",
                             "Coste medio (aprox.)",
-                        ]
-                    ],
+                        ],
+                    ),
                     use_container_width=True,
                     hide_index=True,
                 )
@@ -1026,18 +1059,15 @@ else:  # Activos & Detalles
     with colB:
         st.markdown('<div class="glass soft"><div class="t">🔎 Detalles</div><div class="s">Tabla completa (solo si quieres comprobar líneas del PDF).</div>', unsafe_allow_html=True)
         if show_details:
-            st.dataframe(
-                tx_f2[["date", "type", "Categoria", "cashflow", "balance", "isin", "asset", "quantity", "desc"]],
-                use_container_width=True,
-                hide_index=True,
-            )
+            details = tx_f2[["date", "type", "Categoria", "cashflow", "balance", "isin", "asset", "quantity", "desc"]].copy()
+            st.dataframe(style_df_dark(details), use_container_width=True, hide_index=True)
         else:
             st.info("Activa 'Ver tabla completa' en el panel lateral.")
         st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ==========================================================
-# DESCARGA + NOTA (igual)
+# DESCARGA + NOTA
 # ==========================================================
 st.write("")
 st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
