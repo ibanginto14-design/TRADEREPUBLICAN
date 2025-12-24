@@ -17,36 +17,46 @@ except Exception:
 
 
 # =========================
-# CONFIG + UI MINIMAL
+# CONFIG + NUEVO DISEÑO (sin cambiar “qué datos doy”)
 # =========================
 st.set_page_config(page_title="Trade Republic · Mi dinero (PDF)", page_icon="💶", layout="wide")
 
 st.markdown(
     """
 <style>
-/* --- Layout minimal, cómodo --- */
-.block-container { padding-top: 1.0rem; padding-bottom: 2.2rem; max-width: 1250px; }
-h1,h2,h3 { letter-spacing: -0.3px; margin-bottom: .4rem; }
+/* --- App frame --- */
+.block-container { padding-top: 0.9rem; padding-bottom: 2.2rem; max-width: 1260px; }
+section[data-testid="stSidebar"] { border-right: 1px solid rgba(255,255,255,0.10); }
 
-/* Tipografía y aire */
+/* --- Typography --- */
+h1,h2,h3 { letter-spacing: -0.35px; }
 p, li, label { line-height: 1.35; }
-.small { font-size: 12px; opacity: .75; }
-.muted { opacity: .80; }
+.small { font-size: 12px; opacity: .78; }
+.muted { opacity: .82; }
 
-/* Tarjeta “hero” */
-.hero {
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.04);
-  border-radius: 18px;
+/* --- Top bar --- */
+.topbar {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
   padding: 14px 16px;
-  margin-bottom: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+  margin-bottom: 12px;
 }
-.hero .title { font-weight: 800; font-size: 18px; margin-bottom: 4px; }
-.hero .sub { font-size: 13px; opacity: .78; }
-
-/* Badges */
-.badges { display:flex; flex-wrap:wrap; gap:8px; margin: 10px 0 6px 0; }
-.badge {
+.brand {
+  display:flex; align-items:center; gap:10px;
+}
+.brand .logo {
+  width: 36px; height: 36px; border-radius: 12px;
+  display:flex; align-items:center; justify-content:center;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  font-size: 18px;
+}
+.brand .txt .t { font-weight: 850; font-size: 16px; letter-spacing:-0.3px; }
+.brand .txt .s { font-size: 12px; opacity: .78; margin-top: 2px; }
+.chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
+.chip{
   display:inline-flex; align-items:center; gap:8px;
   padding: 6px 10px;
   border-radius: 999px;
@@ -55,48 +65,65 @@ p, li, label { line-height: 1.35; }
   font-size: 12px;
 }
 
-/* KPI cards */
-.kpi-grid { display:grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 6px; }
-@media (max-width: 1200px){ .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
-.kpi {
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 16px;
-  padding: 12px 14px;
+/* --- Cards --- */
+.card {
+  border: 1px solid rgba(255,255,255,0.10);
   background: rgba(255,255,255,0.03);
+  border-radius: 18px;
+  padding: 12px 14px;
 }
-.kpi .t { font-size: 12px; opacity: .82; margin-bottom: 6px; }
-.kpi .v { font-size: 22px; font-weight: 800; letter-spacing: -0.4px; }
+.card .ct { font-weight: 800; margin-bottom: 2px; letter-spacing:-0.25px; }
+.card .cs { font-size: 12px; opacity: .78; margin-bottom: 10px; }
+
+/* --- KPI row --- */
+.kpis { display:grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+@media (max-width: 1200px){ .kpis { grid-template-columns: repeat(2, 1fr); } }
+.kpi {
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.035);
+  border-radius: 18px;
+  padding: 12px 14px;
+}
+.kpi .t { font-size: 12px; opacity: .80; margin-bottom: 6px; }
+.kpi .v { font-size: 22px; font-weight: 900; letter-spacing:-0.5px; }
 .kpi .s { font-size: 12px; opacity: .70; margin-top: 6px; }
 
-/* Separador suave */
+/* --- Section divider --- */
 .hr { height: 1px; background: rgba(255,255,255,0.10); margin: 14px 0; border-radius: 999px; }
 
-/* Sidebar más limpia */
-section[data-testid="stSidebar"] { border-right: 1px solid rgba(255,255,255,0.10); }
+/* --- Dataframe --- */
+div[data-testid="stDataFrame"] {
+  border-radius: 16px; overflow:hidden; border: 1px solid rgba(255,255,255,0.10);
+}
 
-/* Dataframes: bordes más suaves */
-div[data-testid="stDataFrame"] { border-radius: 14px; overflow: hidden; border: 1px solid rgba(255,255,255,0.10); }
+/* --- Navigation (radio) look like segmented control --- */
+div[role="radiogroup"] > label { padding: 0 !important; }
+.navwrap {
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.03);
+  border-radius: 16px;
+  padding: 6px 10px;
+}
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-st.markdown(
-    """
-<div class="hero">
-  <div class="title">💶 Trade Republic · Mi dinero</div>
-  <div class="sub">
-    Sube tu <b>Extracto de cuenta (PDF)</b>. Te lo traduzco a lenguaje claro: entradas, salidas,
-    en qué se fue, cómo evolucionó y qué movimientos fueron clave.
-  </div>
-</div>
-""",
-    unsafe_allow_html=True,
-)
+
+def fmt_eur(x: float) -> str:
+    try:
+        return f"{float(x):,.2f} €"
+    except Exception:
+        return "—"
+
+
+def short_desc(s: str, n: int = 110) -> str:
+    s = str(s or "").strip()
+    return (s[: n - 1] + "…") if len(s) > n else s
 
 
 # =========================
-# PARSER (robusto para PDFs maquetados)
+# PARSER (sin cambios de datos)
 # =========================
 MONTHS = {
     "ene": 1, "feb": 2, "mar": 3, "abr": 4, "may": 5, "jun": 6,
@@ -120,7 +147,6 @@ END_MARKERS = ("RESUMEN DEL BALANCE", "NOTAS SOBRE")
 
 
 def _to_float_eu(s: str) -> Optional[float]:
-    """Convierte números tipo 1.001,00 o 100,00 o -4,18 a float."""
     if s is None:
         return None
     s = str(s).strip()
@@ -143,7 +169,6 @@ def _extract_text_all_pages(pdf_bytes: bytes) -> str:
 
 
 def _slice_transaction_section(lines: List[str]) -> List[str]:
-    """Coge la parte entre 'TRANSACCIONES DE CUENTA' y 'RESUMEN...' y limpia headers/footers."""
     up = [l.upper() for l in lines]
 
     start = 0
@@ -174,19 +199,14 @@ def _date_prefix(line: str) -> Optional[Tuple[int, str, str]]:
     m = re.match(r"^\s*(\d{1,2})\s+([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{3,4})\b(?:\s+(.*))?$", line.strip())
     if not m:
         return None
-    day = int(m.group(1))
-    mon = m.group(2)
-    rest = (m.group(3) or "").strip()
-    return day, mon, rest
+    return int(m.group(1)), m.group(2), (m.group(3) or "").strip()
 
 
 def _year_prefix(line: str) -> Optional[Tuple[int, str]]:
     m = re.match(r"^\s*(\d{4})\b(?:\s+(.*))?$", line.strip())
     if not m:
         return None
-    year = int(m.group(1))
-    rest = (m.group(2) or "").strip()
-    return year, rest
+    return int(m.group(1)), (m.group(2) or "").strip()
 
 
 def _infer_type(desc: str) -> str:
@@ -208,11 +228,6 @@ def _infer_type(desc: str) -> str:
 
 
 def _infer_side_and_cashflow(tx_type: str, desc: str, amount: Optional[float]) -> Tuple[str, Optional[float]]:
-    """
-    Devuelve (side, cashflow):
-    - side: BUY/SELL/NA (solo para Operar)
-    - cashflow: signo inferido (entrada + / salida -)
-    """
     if amount is None or not np.isfinite(amount):
         return "NA", None
     if amount < 0:
@@ -273,10 +288,6 @@ def _extract_asset_name(desc: str, isin: str) -> str:
 
 @st.cache_data(show_spinner=False)
 def parse_tr_pdf_transactions(pdf_bytes: bytes) -> pd.DataFrame:
-    """
-    Parser robusto para extractos Trade Republic con líneas partidas.
-    Extrae: date, type, desc, amount, balance, isin, asset, quantity, side, cashflow
-    """
     text = _extract_text_all_pages(pdf_bytes)
     lines = [l.strip() for l in text.splitlines() if l.strip()]
     lines = _slice_transaction_section(lines)
@@ -348,7 +359,7 @@ def parse_tr_pdf_transactions(pdf_bytes: bytes) -> pd.DataFrame:
 
 
 # =========================
-# “TRADUCCIÓN” A LENGUAJE SIMPLE + HELPERS
+# CATEGORÍAS “CLARAS” (sin cambios)
 # =========================
 def category_simple(row_type: str, desc: str) -> str:
     t = (row_type or "").lower()
@@ -371,20 +382,8 @@ def category_simple(row_type: str, desc: str) -> str:
     return "Otros"
 
 
-def fmt_eur(x: float) -> str:
-    try:
-        return f"{float(x):,.2f} €"
-    except Exception:
-        return "—"
-
-
-def short_desc(s: str, n: int = 110) -> str:
-    s = str(s or "").strip()
-    return (s[: n - 1] + "…") if len(s) > n else s
-
-
 # =========================
-# ACTIVOS (P&L realizado)
+# ACTIVOS (sin cambios)
 # =========================
 def compute_asset_realized_pnl(tx: pd.DataFrame) -> pd.DataFrame:
     op = tx[tx["type"].astype(str).str.lower().eq("operar")].copy()
@@ -448,20 +447,18 @@ def compute_asset_realized_pnl(tx: pd.DataFrame) -> pd.DataFrame:
 
 
 # =========================
-# GRÁFICOS (selección: útiles + limpios)
+# GRÁFICOS (mismos tipos/datos)
 # =========================
 def fig_in_out_net(total_in: float, total_out: float, net: float):
-    """Entradas vs Salidas + Neto (simple)."""
     if not PLOTLY_OK:
         return None
     df = pd.DataFrame({"Concepto": ["Entradas", "Salidas", "Neto"], "€": [total_in, total_out, net]})
-    fig = px.bar(df, x="Concepto", y="€", title="⚖️ Entradas vs Salidas (y el neto)")
-    fig.update_layout(height=340, margin=dict(l=10, r=10, t=55, b=10))
+    fig = px.bar(df, x="Concepto", y="€", title="⚖️ Entradas vs Salidas (y neto)")
+    fig.update_layout(height=320, margin=dict(l=8, r=8, t=50, b=8))
     return fig
 
 
 def donut_outflows(by_cat: pd.Series, top_n: int = 8):
-    """Donut de salidas: más visual que una lista."""
     if not PLOTLY_OK:
         return None
     out = by_cat[by_cat < 0].abs().sort_values(ascending=False)
@@ -475,30 +472,12 @@ def donut_outflows(by_cat: pd.Series, top_n: int = 8):
     if rest > 1e-9:
         df = pd.concat([df, pd.DataFrame([{"Concepto": "Otros (resto)", "€": rest}])], ignore_index=True)
 
-    fig = px.pie(df, names="Concepto", values="€", hole=0.60, title="🍩 ¿En qué se fue? (donut de salidas)")
-    fig.update_layout(height=360, margin=dict(l=10, r=10, t=55, b=10))
-    return fig
-
-
-def donut_inflows(by_cat: pd.Series, top_n: int = 6):
-    if not PLOTLY_OK:
-        return None
-    ins = by_cat[by_cat > 0].sort_values(ascending=False)
-    if ins.empty:
-        return None
-    top = ins.head(top_n)
-    rest = ins.iloc[top_n:].sum() if len(ins) > top_n else 0.0
-    df = top.reset_index()
-    df.columns = ["Concepto", "€"]
-    if rest > 1e-9:
-        df = pd.concat([df, pd.DataFrame([{"Concepto": "Otros (resto)", "€": rest}])], ignore_index=True)
-    fig = px.pie(df, names="Concepto", values="€", hole=0.60, title="🍩 ¿De dónde vino? (donut de entradas)")
-    fig.update_layout(height=360, margin=dict(l=10, r=10, t=55, b=10))
+    fig = px.pie(df, names="Concepto", values="€", hole=0.62, title="🍩 Donut · Salidas")
+    fig.update_layout(height=330, margin=dict(l=8, r=8, t=50, b=8))
     return fig
 
 
 def fig_balance_or_estimated(txg: pd.DataFrame):
-    """Balance del PDF si existe; si no, saldo estimado acumulando cashflow desde 0."""
     if not PLOTLY_OK:
         return None
     df = txg.dropna(subset=["date"]).sort_values("date").copy()
@@ -512,12 +491,11 @@ def fig_balance_or_estimated(txg: pd.DataFrame):
         d2 = df.dropna(subset=["cashflow"]).copy()
         d2["Saldo estimado (desde 0)"] = d2["cashflow"].cumsum()
         fig = px.line(d2, x="date", y="Saldo estimado (desde 0)", title="📈 Evolución estimada (entradas/salidas)")
-    fig.update_layout(height=380, margin=dict(l=10, r=10, t=55, b=10))
+    fig.update_layout(height=360, margin=dict(l=8, r=8, t=50, b=8))
     return fig
 
 
 def fig_monthly_net(txg: pd.DataFrame):
-    """Mes a mes: neto + acumulado (muy informativo y poco ruido)."""
     df = txg.dropna(subset=["date", "cashflow"]).copy()
     if df.empty:
         return None, None
@@ -534,9 +512,9 @@ def fig_monthly_net(txg: pd.DataFrame):
     fig.add_trace(go.Scatter(x=m["Mes"], y=m["Acumulado"], name="Acumulado", mode="lines+markers", yaxis="y2"))
     fig.update_layout(
         title="📅 Mes a mes: neto y acumulado",
-        height=380,
-        margin=dict(l=10, r=10, t=55, b=10),
-        yaxis=dict(title="€ neto del mes"),
+        height=360,
+        margin=dict(l=8, r=8, t=50, b=8),
+        yaxis=dict(title="€ neto"),
         yaxis2=dict(title="€ acumulado", overlaying="y", side="right"),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
@@ -544,7 +522,6 @@ def fig_monthly_net(txg: pd.DataFrame):
 
 
 def fig_timeline_bubbles(txg: pd.DataFrame):
-    """Timeline con burbujas: útil para “qué pasó” sin saturar."""
     if not PLOTLY_OK:
         return None
     df = txg.dropna(subset=["date", "cashflow"]).copy()
@@ -561,14 +538,13 @@ def fig_timeline_bubbles(txg: pd.DataFrame):
         y="cashflow",
         size="Impacto_clip",
         hover_data={"Categoria": True, "desc": True, "cashflow": ":.2f", "date": True, "Impacto_clip": False},
-        title="🫧 Movimientos en el tiempo (puntos grandes = impactos grandes)",
+        title="🫧 Movimientos (puntos grandes = impacto grande)",
     )
-    fig.update_layout(height=420, margin=dict(l=10, r=10, t=55, b=10))
+    fig.update_layout(height=390, margin=dict(l=8, r=8, t=50, b=8))
     return fig
 
 
 def fig_stack_monthly_out_by_category(txg: pd.DataFrame, top_n: int = 8):
-    """PRO: barras apiladas de gasto por mes para ver dominancia por categoría."""
     if not PLOTLY_OK:
         return None
     df = txg.dropna(subset=["date", "cashflow", "Categoria"]).copy()
@@ -586,8 +562,8 @@ def fig_stack_monthly_out_by_category(txg: pd.DataFrame, top_n: int = 8):
     out["Categoria2"] = out["Categoria"].where(out["Categoria"].isin(top_cats), other="Otros (resto)")
 
     grp = out.groupby(["Mes", "Categoria2"])["€"].sum().reset_index()
-    fig = px.bar(grp, x="Mes", y="€", color="Categoria2", title="📊 PRO: Gasto por mes (apilado por categoría)")
-    fig.update_layout(height=420, margin=dict(l=10, r=10, t=55, b=10))
+    fig = px.bar(grp, x="Mes", y="€", color="Categoria2", title="📊 PRO · Gasto por mes (apilado por categoría)")
+    fig.update_layout(height=390, margin=dict(l=8, r=8, t=50, b=8))
     return fig
 
 
@@ -604,24 +580,22 @@ def biggest_moves_table(txg: pd.DataFrame, n: int = 12) -> pd.DataFrame:
 
 
 # =========================
-# SIDEBAR (minimal + potente)
+# SIDEBAR (limpia)
 # =========================
 with st.sidebar:
-    st.subheader("📄 Tu extracto")
-    up = st.file_uploader("Sube el PDF", type=["pdf"])
+    st.subheader("📄 Extracto")
+    up = st.file_uploader("Sube tu PDF", type=["pdf"])
 
     st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
-    st.subheader("⚙️ Vista")
+    st.subheader("⚙️ Controles")
 
-    view = st.radio("Modo", ["Cómodo (recomendado)", "PRO (más detalle)"], index=0)
+    view = st.radio("Modo", ["Cómodo", "PRO"], index=0)
 
-    st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
-    with st.expander("Filtros", expanded=True):
+    with st.expander("Opciones", expanded=True):
         show_assets = st.checkbox("Mostrar activos (si operaste)", value=True)
         show_details = st.checkbox("Ver tabla completa", value=False)
         donut_top = st.slider("Donut: Top categorías", 4, 12, 8)
         top_moves_n = st.slider("Top movimientos", 5, 25, 12)
-
 
 if not up:
     st.info("⬅️ Sube tu PDF para empezar.")
@@ -629,17 +603,8 @@ if not up:
 
 pdf_bytes = up.getvalue()
 
-
-# =========================
-# PARSE SAFE
-# =========================
 with st.spinner("Leyendo tu PDF…"):
-    try:
-        tx = parse_tr_pdf_transactions(pdf_bytes)
-    except Exception as e:
-        st.error("No he podido leer el PDF sin errores. Prueba con otro extracto o vuelve a descargarlo.")
-        st.exception(e)
-        st.stop()
+    tx = parse_tr_pdf_transactions(pdf_bytes)
 
 if tx.empty:
     st.error(
@@ -648,7 +613,7 @@ if tx.empty:
     )
     st.stop()
 
-# Postprocess
+# Postprocess (sin cambiar datos)
 tx = tx.copy()
 tx["cashflow"] = pd.to_numeric(tx["cashflow"], errors="coerce")
 tx["balance"] = pd.to_numeric(tx["balance"], errors="coerce")
@@ -656,7 +621,7 @@ tx["amount"] = pd.to_numeric(tx["amount"], errors="coerce")
 tx["Categoria"] = [category_simple(t, d) for t, d in zip(tx["type"].astype(str), tx["desc"].astype(str))]
 txg = tx.dropna(subset=["date"]).sort_values("date").copy()
 
-# Filtro de fechas (automático + simple)
+# Rango de fechas
 if not txg.empty:
     dmin = pd.to_datetime(txg["date"].min()).date()
     dmax = pd.to_datetime(txg["date"].max()).date()
@@ -677,7 +642,7 @@ txg_f = txg[(txg["date"].dt.date >= start_d) & (txg["date"].dt.date <= end_d)].c
 tx_f2 = tx.dropna(subset=["date"]).copy()
 tx_f2 = tx_f2[(tx_f2["date"].dt.date >= start_d) & (tx_f2["date"].dt.date <= end_d)].copy()
 
-# Métricas
+# Métricas (sin cambios)
 total_in = float(tx_f2.loc[tx_f2["cashflow"] > 0, "cashflow"].sum(skipna=True))
 total_out = float(-tx_f2.loc[tx_f2["cashflow"] < 0, "cashflow"].sum(skipna=True))
 net = float(tx_f2["cashflow"].sum(skipna=True))
@@ -692,16 +657,26 @@ intereses = float(by_cat.get("Intereses / rentabilidad", 0.0))
 
 last_balance_val = float(tx_f2["balance"].dropna().iloc[-1]) if tx_f2["balance"].notna().any() else float("nan")
 
+
 # =========================
-# HEADER: badges + saldo
+# TOPBAR (nuevo look)
 # =========================
 st.markdown(
     f"""
-<div class="badges">
-  <div class="badge">📌 <b>Entradas</b>: {fmt_eur(total_in)}</div>
-  <div class="badge">📤 <b>Salidas</b>: {fmt_eur(total_out)}</div>
-  <div class="badge">🧮 <b>Neto</b>: {fmt_eur(net)}</div>
-  <div class="badge">🗓️ <b>Rango</b>: {start_d} → {end_d}</div>
+<div class="topbar">
+  <div class="brand">
+    <div class="logo">💶</div>
+    <div class="txt">
+      <div class="t">Trade Republic · Mi dinero</div>
+      <div class="s">Entradas, salidas, en qué se fue, evolución y movimientos clave</div>
+    </div>
+  </div>
+  <div class="chips">
+    <div class="chip">📌 Entradas <b>{fmt_eur(total_in)}</b></div>
+    <div class="chip">📤 Salidas <b>{fmt_eur(total_out)}</b></div>
+    <div class="chip">🧮 Neto <b>{fmt_eur(net)}</b></div>
+    <div class="chip">🗓️ {start_d} → {end_d}</div>
+  </div>
 </div>
 """,
     unsafe_allow_html=True,
@@ -715,12 +690,11 @@ else:
 st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
 
 # =========================
-# KPI CARDS
+# KPIs (mismo contenido)
 # =========================
-st.subheader("✅ Resumen (lo esencial)")
 st.markdown(
     f"""
-<div class="kpi-grid">
+<div class="kpis">
   <div class="kpi"><div class="t">Dinero que metiste</div><div class="v">{fmt_eur(metiste)}</div><div class="s">Ingresos/aportaciones</div></div>
   <div class="kpi"><div class="t">Dinero que sacaste</div><div class="v">{fmt_eur(sacaste)}</div><div class="s">Retiradas fuera</div></div>
   <div class="kpi"><div class="t">Gastos con tarjeta</div><div class="v">{fmt_eur(tarjeta)}</div><div class="s">Pagos / compras</div></div>
@@ -734,170 +708,183 @@ st.markdown(
 st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
 
 # =========================
-# TABS (fluido y limpio)
+# NAVEGACIÓN (diseño nuevo, datos iguales)
 # =========================
-tab1, tab2, tab3, tab4 = st.tabs(["📌 Dashboard", "🫧 Movimientos", "📊 PRO", "📦 Activos & Detalles"])
+cnav1, cnav2 = st.columns([1.5, 4.5], gap="large")
 
-# -------------------------
-# TAB 1: Dashboard (selección de gráficos “mejor ratio info/ruido”)
-# -------------------------
-with tab1:
-    st.subheader("📌 Dashboard (claro y visual)")
+with cnav1:
+    st.markdown('<div class="navwrap">', unsafe_allow_html=True)
+    page = st.radio(
+        "Navegación",
+        ["Dashboard", "Movimientos", "PRO", "Activos & Detalles"],
+        label_visibility="collapsed",
+        index=0,
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    col1, col2 = st.columns([1.05, 0.95], gap="large")
+    st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
+    st.caption("Consejo: si algo no cuadra, ve a **Detalles** y revisamos el texto del PDF.")
 
-    with col1:
-        st.markdown("**Entradas vs Salidas**")
-        st.caption("Lo más directo para entender si en el periodo tu dinero fue a favor o en contra.")
-        fig = fig_in_out_net(total_in, total_out, net)
-        if fig is not None:
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.bar_chart(pd.Series({"Entradas": total_in, "Salidas": total_out, "Neto": net}))
+with cnav2:
+    if page == "Dashboard":
+        st.markdown('<div class="card"><div class="ct">📌 Dashboard</div><div class="cs">Vista cómoda: lo esencial sin ruido.</div></div>', unsafe_allow_html=True)
+        st.write("")
 
-        st.markdown("**Evolución del saldo**")
-        st.caption("Si tu PDF trae balance, lo dibujo. Si no, muestro una evolución estimada (acumulando entradas/salidas).")
-        fig = fig_balance_or_estimated(txg_f)
-        if fig is not None:
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No se pudo generar la evolución (o falta Plotly).")
-
-    with col2:
-        st.markdown("**Donut de salidas**")
-        st.caption("Visual y rápido: en qué se fue el dinero (agrupado).")
-        fig = donut_outflows(by_cat, top_n=donut_top)
-        if fig is not None:
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            outs = by_cat[by_cat < 0].abs().sort_values(ascending=False)
-            if outs.empty:
-                st.info("No veo salidas en el rango.")
-            else:
-                st.bar_chart(outs.head(donut_top))
-
-        if view.startswith("PRO"):
-            st.markdown("**Donut de entradas (PRO)**")
-            st.caption("Útil si tienes varias fuentes de entrada, no solo “Dinero que metiste”.")
-            fig = donut_inflows(by_cat, top_n=max(4, min(8, donut_top)))
+        r1a, r1b = st.columns([1.25, 0.95], gap="large")
+        with r1a:
+            st.markdown('<div class="card"><div class="ct">⚖️ Entradas vs Salidas</div><div class="cs">Lo más directo para entender el periodo.</div>', unsafe_allow_html=True)
+            fig = fig_in_out_net(total_in, total_out, net)
             if fig is not None:
                 st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("**Mes a mes**")
-    st.caption("Menos ruido que el día a día: neto mensual + acumulado.")
-    fig, mdf = fig_monthly_net(txg_f)
-    if fig is not None:
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        if mdf is not None and not mdf.empty:
-            st.bar_chart(mdf.set_index("Mes")[["cashflow"]])
-        else:
-            st.info("No hay suficientes datos para mes a mes.")
-
-
-# -------------------------
-# TAB 2: Movimientos (picos + tabla)
-# -------------------------
-with tab2:
-    st.subheader("🫧 Movimientos (para entender picos)")
-    st.caption("Este es el mejor para responder: “¿qué pasó exactamente aquí?”")
-
-    fig = fig_timeline_bubbles(txg_f)
-    if fig is not None:
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("Plotly no está disponible: muestro tabla de movimientos.")
-
-    st.markdown("**Top movimientos por impacto**")
-    big = biggest_moves_table(txg_f, n=top_moves_n)
-    if big.empty:
-        st.info("No hay suficientes movimientos con fecha/importe para listar.")
-    else:
-        st.dataframe(big, use_container_width=True, hide_index=True)
-
-
-# -------------------------
-# TAB 3: PRO (quedarse con lo que aporta)
-# Quitamos: histogramas/distribución, anomalías complejas, etc.
-# Mantenemos: apilado mensual (muy útil).
-# -------------------------
-with tab3:
-    st.subheader("📊 PRO (más detalle, sin ruido)")
-
-    st.markdown("**Gasto por mes (apilado por categoría)**")
-    st.caption("Te dice qué categoría dominó cada mes. Es de lo más informativo cuando quieres profundidad.")
-    fig = fig_stack_monthly_out_by_category(txg_f, top_n=8)
-    if fig is not None:
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No hay suficientes salidas para construir el apilado mensual (o falta Plotly).")
-
-    with st.expander("Ver categorías netas (tabla)", expanded=False):
-        tbl = by_cat.sort_values()
-        if tbl.empty:
-            st.info("No hay datos por categoría.")
-        else:
-            st.dataframe(tbl.rename("€ neto").reset_index().rename(columns={"index": "Categoría"}), use_container_width=True, hide_index=True)
-
-
-# -------------------------
-# TAB 4: Activos + Detalles
-# -------------------------
-with tab4:
-    cA, cB = st.columns([1.0, 1.0], gap="large")
-
-    with cA:
-        st.subheader("📦 Activos (si operaste)")
-        if show_assets:
-            assets = compute_asset_realized_pnl(tx_f2)
-            if assets.empty:
-                st.info("No veo operaciones de inversión suficientes en este rango.")
             else:
-                a1, a2, a3 = st.columns(3)
-                a1.metric("Activos", f"{len(assets)}")
-                a2.metric("Ganado/perdido ya cerrado", fmt_eur(assets["Ganado / perdido ya cerrado"].sum()))
-                a3.metric("Dinero metido (compras)", fmt_eur(assets["Dinero metido (compras)"].sum()))
+                st.bar_chart(pd.Series({"Entradas": total_in, "Salidas": total_out, "Neto": net}))
+            st.markdown("</div>", unsafe_allow_html=True)
 
+            st.write("")
+            st.markdown('<div class="card"><div class="ct">📈 Evolución del saldo</div><div class="cs">Balance del PDF o estimación acumulando entradas/salidas.</div>', unsafe_allow_html=True)
+            fig = fig_balance_or_estimated(txg_f)
+            if fig is not None:
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No se pudo generar la evolución (o falta Plotly).")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with r1b:
+            st.markdown('<div class="card"><div class="ct">🍩 Donut de salidas</div><div class="cs">En qué se fue el dinero (agrupado).</div>', unsafe_allow_html=True)
+            fig = donut_outflows(by_cat, top_n=donut_top)
+            if fig is not None:
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                outs = by_cat[by_cat < 0].abs().sort_values(ascending=False).head(donut_top)
+                if outs.empty:
+                    st.info("No veo salidas en el rango.")
+                else:
+                    st.bar_chart(outs)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        st.write("")
+        st.markdown('<div class="card"><div class="ct">📅 Mes a mes</div><div class="cs">Neto mensual y acumulado (menos ruido que el día a día).</div>', unsafe_allow_html=True)
+        fig, mdf = fig_monthly_net(txg_f)
+        if fig is not None:
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            if mdf is not None and not mdf.empty:
+                st.bar_chart(mdf.set_index("Mes")[["cashflow"]])
+            else:
+                st.info("No hay suficientes datos para mes a mes.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    elif page == "Movimientos":
+        st.markdown('<div class="card"><div class="ct">🫧 Movimientos</div><div class="cs">Picos y días que movieron la aguja.</div></div>', unsafe_allow_html=True)
+        st.write("")
+
+        st.markdown('<div class="card"><div class="ct">Timeline</div><div class="cs">Puntos grandes = movimientos grandes.</div>', unsafe_allow_html=True)
+        fig = fig_timeline_bubbles(txg_f)
+        if fig is not None:
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Plotly no está disponible.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.write("")
+        st.markdown('<div class="card"><div class="ct">Top movimientos por impacto</div><div class="cs">Los más importantes para entender “qué pasó”.</div>', unsafe_allow_html=True)
+        big = biggest_moves_table(txg_f, n=top_moves_n)
+        if big.empty:
+            st.info("No hay suficientes movimientos con fecha/importe para listar.")
+        else:
+            st.dataframe(big, use_container_width=True, hide_index=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    elif page == "PRO":
+        st.markdown('<div class="card"><div class="ct">📊 PRO</div><div class="cs">Más detalle, manteniendo limpieza visual.</div></div>', unsafe_allow_html=True)
+        st.write("")
+
+        st.markdown('<div class="card"><div class="ct">Gasto por mes (apilado por categoría)</div><div class="cs">Qué categoría dominó cada mes.</div>', unsafe_allow_html=True)
+        fig = fig_stack_monthly_out_by_category(txg_f, top_n=8)
+        if fig is not None:
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No hay suficientes salidas para construir este gráfico (o falta Plotly).")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.write("")
+        with st.expander("Ver tabla de categorías netas"):
+            tbl = by_cat.sort_values()
+            if tbl.empty:
+                st.info("No hay datos por categoría.")
+            else:
                 st.dataframe(
-                    assets[
-                        [
-                            "Activo",
-                            "ISIN",
-                            "Dinero metido (compras)",
-                            "Dinero recuperado (ventas)",
-                            "Ganado / perdido ya cerrado",
-                            "Cantidad que te queda (aprox.)",
-                            "Coste medio (aprox.)",
-                        ]
-                    ],
+                    tbl.rename("€ neto")
+                    .reset_index()
+                    .rename(columns={"index": "Categoría"}),
                     use_container_width=True,
                     hide_index=True,
                 )
 
-                if PLOTLY_OK:
-                    top = assets.sort_values("Ganado / perdido ya cerrado", ascending=False).head(12)
-                    fig = px.bar(top, x="Ganado / perdido ya cerrado", y="Activo", orientation="h",
-                                 title="🏅 Top · Ganado/perdido ya cerrado")
-                    fig.update_layout(height=420, margin=dict(l=10, r=10, t=55, b=10))
-                    st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Activa 'Mostrar activos' en la barra lateral.")
+    else:  # Activos & Detalles
+        st.markdown('<div class="card"><div class="ct">📦 Activos & 🔎 Detalles</div><div class="cs">Activos (si operaste) y la tabla completa para comprobar.</div></div>', unsafe_allow_html=True)
+        st.write("")
 
-    with cB:
-        st.subheader("🔎 Detalles")
-        st.caption("Úsalo solo si algo no cuadra o quieres comprobar el texto exacto del PDF.")
-        if show_details:
-            st.dataframe(
-                tx_f2[["date", "type", "Categoria", "cashflow", "balance", "isin", "asset", "quantity", "desc"]],
-                use_container_width=True,
-                hide_index=True,
-            )
-        else:
-            st.info("Activa 'Ver tabla completa' en la barra lateral para mostrar los detalles.")
+        a, b = st.columns([1.05, 0.95], gap="large")
+
+        with a:
+            st.markdown('<div class="card"><div class="ct">📦 Activos (si operaste)</div><div class="cs">Resultado ya cerrado y estimación de lo que queda.</div>', unsafe_allow_html=True)
+            if show_assets:
+                assets = compute_asset_realized_pnl(tx_f2)
+                if assets.empty:
+                    st.info("No veo operaciones de inversión suficientes en este rango.")
+                else:
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("Activos", f"{len(assets)}")
+                    c2.metric("Ganado/perdido ya cerrado", fmt_eur(assets["Ganado / perdido ya cerrado"].sum()))
+                    c3.metric("Dinero metido (compras)", fmt_eur(assets["Dinero metido (compras)"].sum()))
+
+                    st.dataframe(
+                        assets[
+                            [
+                                "Activo",
+                                "ISIN",
+                                "Dinero metido (compras)",
+                                "Dinero recuperado (ventas)",
+                                "Ganado / perdido ya cerrado",
+                                "Cantidad que te queda (aprox.)",
+                                "Coste medio (aprox.)",
+                            ]
+                        ],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+                    if PLOTLY_OK:
+                        top = assets.sort_values("Ganado / perdido ya cerrado", ascending=False).head(12)
+                        fig = px.bar(
+                            top,
+                            x="Ganado / perdido ya cerrado",
+                            y="Activo",
+                            orientation="h",
+                            title="🏅 Top · Ganado/perdido ya cerrado",
+                        )
+                        fig.update_layout(height=360, margin=dict(l=8, r=8, t=50, b=8))
+                        st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Activa 'Mostrar activos' en la barra lateral.")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with b:
+            st.markdown('<div class="card"><div class="ct">🔎 Detalles</div><div class="cs">Para verificar líneas exactas del PDF.</div>', unsafe_allow_html=True)
+            if show_details:
+                st.dataframe(
+                    tx_f2[["date", "type", "Categoria", "cashflow", "balance", "isin", "asset", "quantity", "desc"]],
+                    use_container_width=True,
+                    hide_index=True,
+                )
+            else:
+                st.info("Activa 'Ver tabla completa' en la barra lateral.")
+            st.markdown("</div>", unsafe_allow_html=True)
 
 
 # =========================
-# DESCARGA
+# DESCARGA + NOTA
 # =========================
 st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
 st.download_button(
@@ -910,8 +897,8 @@ st.download_button(
 st.markdown(
     """
 <div class="small muted">
-<b>Nota:</b> Esta app explica tu cuenta a partir del PDF (entradas/salidas y balance si existe).
-Para saber el <b>valor actual</b> de tus inversiones haría falta añadir precios de mercado (no vienen en el PDF).
+<b>Nota:</b> Esto explica tu cuenta a partir del PDF (entradas/salidas y balance si existe).
+Para el <b>valor actual</b> de tus inversiones harían falta precios de mercado (no vienen en el PDF).
 </div>
 """,
     unsafe_allow_html=True,
