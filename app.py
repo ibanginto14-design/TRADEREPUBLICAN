@@ -1,6 +1,5 @@
 import io
 import re
-from dataclasses import dataclass
 from typing import Optional, List, Tuple, Dict
 
 import numpy as np
@@ -13,12 +12,14 @@ import pdfplumber
 # CONFIG
 # =========================
 st.set_page_config(page_title="Trade Republic · PDF Analyzer", page_icon="📄", layout="wide")
-st.title("📄 Trade Republic · PDF Analyzer (sin errores con extractos maquetados)")
-st.caption("Sube un PDF de Trade Republic (extracto de cuenta). La app parsea la sección 'TRANSACCIONES DE CUENTA' aunque no sea una tabla real.")
-
+st.title("📄 Trade Republic · PDF Analyzer (Extracto de cuenta)")
+st.caption(
+    "Sube un PDF de Trade Republic (extracto de cuenta). "
+    "La app parsea 'TRANSACCIONES DE CUENTA' aunque el PDF esté maquetado y NO tenga tablas reales."
+)
 
 # =========================
-# PARSER
+# CONSTANTS / HELPERS
 # =========================
 MONTHS = {
     "ene": 1, "feb": 2, "mar": 3, "abr": 4, "may": 5, "jun": 6,
@@ -28,21 +29,13 @@ MONTHS = {
 DROP_PATTERNS = [
     r"^TRADE REPUBLIC BANK",
     r"^Trade Republic Bank",
-    r"^C/ Velazquez",
-    r"^28001,",
-    r"^NIF",
     r"^www\.traderepublic",
-    r"^NIF-IVA",
-    r"^Domicilio social",
-    r"^Registrada en",
-    r"^Directores generales",
-    r"^Creado en",
     r"^Página \d+ de \d+",
     r"^RESUMEN DE ESTADO DE CUENTA",
     r"^TRANSACCIONES DE CUENTA$",
     r"^FECHA\s+TIPO\s+DESCRIPCIÓN",
-    r"ENTRADA",
-    r"SALIDA",
+    r"\bENTRADA\b",
+    r"\bSALIDA\b",
     r"\bBALANCE\b",
 ]
 
@@ -57,8 +50,6 @@ def _to_float_eu(s: str) -> Optional[float]:
     s = re.sub(r"[^\d,\.\-\+]", "", s)
     if not s:
         return None
-
-    # miles con punto + decimal coma: 1.001,00 -> 1001.00
     if "," in s and "." in s:
         s = s.replace(".", "").replace(",", ".")
     elif "," in s and "." not in s:
@@ -75,7 +66,7 @@ def _extract_text_all_pages(pdf_bytes: bytes) -> str:
 
 
 def _slice_transaction_section(lines: List[str]) -> List[str]:
-    """Coge solo la parte entre 'TRANSACCIONES DE CUENTA' y 'RESUMEN DEL BALANCE/NOTAS...'."""
+    """Coge la parte entre 'TRANSACCIONES DE CUENTA' y 'RESUMEN DEL BALANCE/NOTAS...' y limpia headers/footers."""
     up = [l.upper() for l in lines]
 
     start = 0
@@ -117,10 +108,7 @@ def _date_prefix(line: str) -> Optional[Tuple[int, str, str]]:
 
 
 def _year_prefix(line: str) -> Optional[Tuple[int, str]]:
-    """
-    Detecta líneas tipo '2024' o '2025 con tarjeta'.
-    Devuelve (year, rest).
-    """
+    """Detecta líneas tipo '2025 con tarjeta'. Devuelve (year, rest)."""
     m = re.match(r"^\s*(\d{4})\b(?:\s+(.*))?$", line.strip())
     if not m:
         return None
@@ -130,7 +118,7 @@ def _year_prefix(line: str) -> Optional[Tuple[int, str]]:
 
 
 def _infer_type(desc: str) -> str:
-    # orden importante: primero las más largas
+    # Orden importante
     candidates = [
         "Transacción con tarjeta",
         "Transferencia",
@@ -141,55 +129,57 @@ def _infer_type(desc: str) -> str:
         "Interest",
         "Transacción",
     ]
-    low = desc.lower()
+    low = (desc or "").lower()
     for c in candidates:
         if low.startswith(c.lower()):
             return c
-    # fallback: primera palabra
     return desc.split(" ", 1)[0] if desc else "Unknown"
 
 
-def _infer_cashflow(tx_type: str, desc: str, amount: Optional[float]) -> Optional[float]:
+def _infer_side_and_cashflow(tx_type: str, desc: str, amount: Optional[float]) -> Tuple[str, Optional[float]]:
     """
-    Devuelve cashflow con signo:
-      + entrada (sell/dividend/interés/top up incoming)
-      - salida (buy/card/fees/payout outgoing)
+    Devuelve (side, cashflow):
+    - side: BUY/SELL/NA (solo para Operar)
+    - cashflow: signo inferido (entrada + / salida -)
     """
     if amount is None or not np.isfinite(amount):
-        return None
+        return "NA", None
     if amount < 0:
-        return float(amount)
+        return "NA", float(amount)
 
     t = (tx_type or "").lower()
     d = (desc or "").lower()
 
+    # Operar
     if "operar" in t:
-        # sell / venta -> entrada ; buy / compra -> salida
-        if (" sell" in d) or (" venta" in d) or ("ejecución venta" in d):
-            return float(+amount)
-        return float(-amount)
+        is_sell = bool(re.search(r"\bsell\b|venta|ejecución venta", d))
+        side = "SELL" if is_sell else "BUY"
+        # SELL entra, BUY sale
+        return side, float(+amount if is_sell else -amount)
 
+    # Rentabilidad/Interés -> entrada
     if ("rentabilidad" in t) or ("interés" in t) or ("interest" in t):
-        return float(+amount)
+        return "NA", float(+amount)
 
+    # Comisiones -> salida
     if "comisión" in t or "comision" in t:
-        return float(-amount)
+        return "NA", float(-amount)
 
-    if "transacción" in t:
-        return float(-amount)
+    # Tarjeta -> salida
+    if "transacción con tarjeta" in t or (("transacción" in t) and ("tarjeta" in d)):
+        return "NA", float(-amount)
 
+    # Transferencias: heurística
     if "transferencia" in t:
-        # top up / incoming / ingreso -> entrada
-        if ("top up" in d) or ("incoming" in d) or ("ingreso" in d) or ("accepted" in d):
-            return float(+amount)
-        # payout / outgoing -> salida
-        if ("payout" in d) or ("outgoing" in d):
-            return float(-amount)
-        # si no sabemos, asumimos entrada (lo puedes cambiar luego si quieres)
-        return float(+amount)
+        if any(k in d for k in ["top up", "incoming", "ingreso", "accepted"]):
+            return "NA", float(+amount)
+        if any(k in d for k in ["payout", "outgoing", "retirada"]):
+            return "NA", float(-amount)
+        # fallback: entrada
+        return "NA", float(+amount)
 
-    # fallback neutro
-    return float(amount)
+    # Otros: sin signo fiable => lo dejamos positivo
+    return "NA", float(+amount)
 
 
 def _extract_isin(desc: str) -> str:
@@ -209,24 +199,22 @@ def _extract_quantity(desc: str) -> Optional[float]:
 
 
 def _extract_asset_name(desc: str, isin: str) -> str:
+    """
+    En operaciones suele ser: "... for ISIN US... <NAME>, quantity: ..."
+    """
     if not desc or not isin or isin not in desc:
         return ""
     after = desc.split(isin, 1)[1].strip()
-
-    # Si justo después hay un número, no hay nombre (ej: "for ISIN US... 21,45 €")
     if re.match(r"^[-+]?\d", after):
         return ""
-
-    # Corta por ", quantity:" o por el primer importe en euros
     name = re.split(r",\s*quantity:|\s+[-+]?\d{1,3}(?:\.\d{3})*(?:,\d{2})\s*€", after)[0].strip()
     return name.strip(", ")
 
 
 def parse_tr_pdf_transactions(pdf_bytes: bytes) -> pd.DataFrame:
     """
-    Parser robusto para extractos de Trade Republic como el tuyo:
-    - filas partidas: '10 may' / 'Transferencia ...' / '2024'
-    - filas combinadas: '18 dic Transacción' / '...'/ '2025 con tarjeta'
+    Parser robusto para extractos Trade Republic con líneas partidas.
+    Extrae: date, type, desc, amount, balance, isin, asset, quantity, side, cashflow
     """
     text = _extract_text_all_pages(pdf_bytes)
     lines = [l.strip() for l in text.splitlines() if l.strip()]
@@ -248,6 +236,7 @@ def parse_tr_pdf_transactions(pdf_bytes: bytes) -> pd.DataFrame:
         if rest:
             chunks.append(rest)
 
+        # Acumular hasta la siguiente fecha
         while i < len(lines) and not _date_prefix(lines[i]):
             yp = _year_prefix(lines[i])
             if yp:
@@ -266,17 +255,17 @@ def parse_tr_pdf_transactions(pdf_bytes: bytes) -> pd.DataFrame:
 
         desc = " ".join([c for c in chunks if c]).strip()
 
-        # importes: cogemos los 2 últimos números del registro (importe y balance)
+        # Importes: cogemos los 2 últimos números del bloque (importe y balance)
         amts = re.findall(r"[-+]?\d{1,3}(?:\.\d{3})*(?:,\d{2})", desc)
         amount = _to_float_eu(amts[-2]) if len(amts) >= 2 else (_to_float_eu(amts[-1]) if len(amts) == 1 else None)
         balance = _to_float_eu(amts[-1]) if len(amts) >= 1 else None
 
         tx_type = _infer_type(desc)
+        side, cashflow = _infer_side_and_cashflow(tx_type, desc, amount)
+
         isin = _extract_isin(desc)
         qty = _extract_quantity(desc)
         asset = _extract_asset_name(desc, isin)
-
-        cashflow = _infer_cashflow(tx_type, desc, amount)
 
         recs.append(
             {
@@ -286,8 +275,9 @@ def parse_tr_pdf_transactions(pdf_bytes: bytes) -> pd.DataFrame:
                 "isin": isin,
                 "asset": asset,
                 "quantity": qty,
-                "amount": amount,     # importe del movimiento (sin signo fiable)
-                "cashflow": cashflow, # importe con signo inferido
+                "side": side,
+                "amount": amount,      # sin signo fiable
+                "cashflow": cashflow,  # con signo inferido
                 "balance": balance,
             }
         )
@@ -298,15 +288,181 @@ def parse_tr_pdf_transactions(pdf_bytes: bytes) -> pd.DataFrame:
     return df
 
 
+def _category(row_type: str, desc: str) -> str:
+    t = (row_type or "").lower()
+    d = (desc or "").lower()
+
+    if "operar" in t:
+        return "Trading"
+    if "transacción con tarjeta" in t or ("tarjeta" in d and "transacción" in t):
+        return "Tarjeta"
+    if "comisión" in t or "comision" in t:
+        return "Comisiones"
+    if "rentabilidad" in t or "interés" in t or "interest" in t:
+        return "Intereses/Rentabilidad"
+    if "transferencia" in t:
+        if any(k in d for k in ["top up", "incoming", "ingreso", "accepted"]):
+            return "Aportaciones"
+        if any(k in d for k in ["payout", "outgoing", "retirada"]):
+            return "Retiradas"
+        return "Transferencias"
+    return "Otros"
+
+
+def _xirr(dates: np.ndarray, cashflows: np.ndarray, guess: float = 0.10) -> Optional[float]:
+    """
+    XIRR por Newton-Raphson (tasa anual).
+    Requiere al menos un flujo negativo y uno positivo.
+    """
+    if len(cashflows) < 2:
+        return None
+    if not (np.any(cashflows < 0) and np.any(cashflows > 0)):
+        return None
+
+    d0 = dates.min()
+    years = (dates - d0) / np.timedelta64(365, "D")
+
+    def npv(r):
+        return np.sum(cashflows / np.power(1 + r, years))
+
+    def d_npv(r):
+        return np.sum(-years * cashflows / np.power(1 + r, years + 1))
+
+    r = guess
+    for _ in range(100):
+        f = npv(r)
+        df = d_npv(r)
+        if df == 0:
+            break
+        nr = r - f / df
+        if not np.isfinite(nr):
+            break
+        if abs(nr - r) < 1e-10:
+            r = nr
+            break
+        r = nr
+
+    if np.isfinite(r) and r > -0.9999:
+        return float(r)
+    return None
+
+
+def compute_asset_pnl_avg_cost(tx: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ganado/perdido por activo (ISIN) a partir de operaciones "Operar":
+    - P&L realizado (ventas vs coste medio)
+    - net_qty, avg_cost, buy/sell totals
+    Importante: sin precio actual, esto es P&L REALIZADO.
+    """
+    op = tx[tx["type"].str.lower().eq("operar")].copy()
+    op = op[op["isin"].astype(str).str.len() > 0].copy()
+
+    if op.empty:
+        return pd.DataFrame()
+
+    op["quantity"] = pd.to_numeric(op["quantity"], errors="coerce")
+    op["amount"] = pd.to_numeric(op["amount"], errors="coerce")
+    op = op.dropna(subset=["date", "quantity", "amount"]).sort_values("date").copy()
+
+    rows = []
+    for isin, g in op.groupby("isin"):
+        pos_qty = 0.0
+        avg_cost = 0.0
+        realized = 0.0
+
+        buy_qty = buy_amt = 0.0
+        sell_qty = sell_amt = 0.0
+        n_trades = 0
+        asset_name = ""
+
+        for _, r in g.iterrows():
+            n_trades += 1
+            qty = float(r["quantity"])
+            amt = float(r["amount"])
+            side = (r.get("side", "NA") or "NA").upper()
+
+            if not asset_name:
+                cand = str(r.get("asset", "") or "").strip()
+                if cand:
+                    asset_name = cand
+
+            if side == "BUY":
+                total_cost_before = pos_qty * avg_cost
+                total_cost_after = total_cost_before + amt
+                pos_qty += qty
+                avg_cost = (total_cost_after / pos_qty) if pos_qty > 0 else 0.0
+
+                buy_qty += qty
+                buy_amt += amt
+
+            elif side == "SELL":
+                proceeds = amt
+                cost_basis = qty * avg_cost
+                realized += (proceeds - cost_basis)
+
+                pos_qty -= qty
+                if pos_qty <= 1e-12:
+                    pos_qty = 0.0
+                    avg_cost = 0.0
+
+                sell_qty += qty
+                sell_amt += amt
+
+            else:
+                # si el side no está bien, intentamos inferir por desc
+                desc = str(r.get("desc", "")).lower()
+                is_sell = bool(re.search(r"\bsell\b|venta|ejecución venta", desc))
+                if is_sell:
+                    proceeds = amt
+                    cost_basis = qty * avg_cost
+                    realized += (proceeds - cost_basis)
+                    pos_qty -= qty
+                    if pos_qty <= 1e-12:
+                        pos_qty = 0.0
+                        avg_cost = 0.0
+                    sell_qty += qty
+                    sell_amt += amt
+                else:
+                    total_cost_before = pos_qty * avg_cost
+                    total_cost_after = total_cost_before + amt
+                    pos_qty += qty
+                    avg_cost = (total_cost_after / pos_qty) if pos_qty > 0 else 0.0
+                    buy_qty += qty
+                    buy_amt += amt
+
+        net_invested = buy_amt - sell_amt  # >0: dinero neto puesto
+        rows.append({
+            "isin": isin,
+            "asset": asset_name,
+            "trades": n_trades,
+            "buy_qty": buy_qty,
+            "buy_amount": buy_amt,
+            "sell_qty": sell_qty,
+            "sell_amount": sell_amt,
+            "net_qty": pos_qty,
+            "avg_cost": avg_cost,
+            "realized_pnl": realized,
+            "net_invested": net_invested,
+            "first_trade": g["date"].min(),
+            "last_trade": g["date"].max(),
+        })
+
+    out = pd.DataFrame(rows)
+    out = out.sort_values("net_invested", ascending=False).reset_index(drop=True)
+    return out
+
+
 # =========================
 # SIDEBAR
 # =========================
 with st.sidebar:
     st.header("Subir PDF")
     up = st.file_uploader("Extracto Trade Republic (PDF)", type=["pdf"])
-    show_raw = st.checkbox("Mostrar tabla completa", value=False)
-    show_debug = st.checkbox("Mostrar diagnóstico (por si algo no cuadra)", value=False)
-    top_n = st.slider("Top N activos (por cash invertido)", 5, 30, 12)
+    st.divider()
+    top_n = st.slider("Top N activos", 5, 30, 12)
+    show_full_tx = st.checkbox("Mostrar transacciones completas", value=False)
+    show_debug = st.checkbox("Modo diagnóstico", value=False)
+    xirr_guess_pct = st.slider("XIRR guess inicial (%)", 0, 50, 10)
 
 if not up:
     st.info("⬅️ Sube tu PDF de Trade Republic para empezar.")
@@ -315,130 +471,166 @@ if not up:
 pdf_bytes = up.getvalue()
 
 # =========================
-# PARSE SAFE
+# PARSE (SAFE)
 # =========================
 try:
     tx = parse_tr_pdf_transactions(pdf_bytes)
 except Exception as e:
-    st.error("He fallado parseando el PDF. No voy a crashear la app: revisa que el PDF sea un extracto de cuenta y vuelve a probar.")
+    st.error("Error parseando el PDF. No crasheo la app: revisa que sea un extracto de cuenta.")
     st.exception(e)
     st.stop()
 
 if tx.empty:
     st.error(
-        "No he encontrado transacciones parseables dentro del PDF. "
-        "Si este PDF NO es un 'Extracto de cuenta' con sección 'TRANSACCIONES DE CUENTA', necesitaré otro documento."
+        "No he encontrado transacciones parseables. "
+        "Suele pasar si el PDF no incluye 'TRANSACCIONES DE CUENTA' o si es un formato distinto."
     )
     st.stop()
+
+# Categorización
+tx = tx.copy()
+tx["category"] = [
+    _category(t, d) for t, d in zip(tx["type"].astype(str), tx["desc"].astype(str))
+]
+
+# Asegurar numéricos
+tx["cashflow"] = pd.to_numeric(tx["cashflow"], errors="coerce")
+tx["amount"] = pd.to_numeric(tx["amount"], errors="coerce")
+tx["balance"] = pd.to_numeric(tx["balance"], errors="coerce")
 
 # =========================
 # TABS
 # =========================
-tab1, tab2, tab3 = st.tabs(["📌 Resumen", "🧾 Transacciones", "📦 Activos (por ISIN)"])
+tab1, tab2, tab3, tab4 = st.tabs(["📌 Resumen", "🧾 Transacciones", "📦 Activos (P&L)", "📅 Mensual"])
 
 with tab1:
-    st.subheader("Resumen")
-    tx_cf = tx.copy()
-    tx_cf["cashflow"] = pd.to_numeric(tx_cf["cashflow"], errors="coerce")
-    total_in = float(tx_cf.loc[tx_cf["cashflow"] > 0, "cashflow"].sum())
-    total_out = float(-tx_cf.loc[tx_cf["cashflow"] < 0, "cashflow"].sum())
-    net = float(tx_cf["cashflow"].sum())
+    st.subheader("Resumen de cuenta (a partir del PDF)")
 
-    last_balance = tx_cf["balance"].dropna()
+    total_in = float(tx.loc[tx["cashflow"] > 0, "cashflow"].sum(skipna=True))
+    total_out = float(-tx.loc[tx["cashflow"] < 0, "cashflow"].sum(skipna=True))
+    net = float(tx["cashflow"].sum(skipna=True))
+
+    last_balance = tx["balance"].dropna()
     last_balance_val = float(last_balance.iloc[-1]) if not last_balance.empty else float("nan")
+    last_date = tx["date"].dropna()
+    last_date_val = last_date.iloc[-1] if not last_date.empty else pd.NaT
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Entradas (+)", f"{total_in:,.2f} €")
     c2.metric("Salidas (-)", f"{total_out:,.2f} €")
     c3.metric("Neto", f"{net:,.2f} €")
-    c4.metric("Balance final (según PDF)", f"{last_balance_val:,.2f} €" if np.isfinite(last_balance_val) else "N/A")
+    c4.metric("Balance final (PDF)", f"{last_balance_val:,.2f} €" if np.isfinite(last_balance_val) else "N/A")
 
-    st.caption("Nota: este PDF es un extracto de cuenta. Aquí analizamos flujos y operaciones; la valoración de cartera actual requiere también posiciones/valor de mercado.")
+    # Neto por categoría
+    st.subheader("Neto por categoría")
+    by_cat = tx.groupby("category")["cashflow"].sum().sort_values()
+    st.bar_chart(by_cat)
 
-    # Series simples
-    tx_cf2 = tx_cf.dropna(subset=["date"]).sort_values("date").copy()
-    tx_cf2["cum_net"] = tx_cf2["cashflow"].fillna(0).cumsum()
-    st.line_chart(tx_cf2.set_index("date")[["cum_net"]])
+    # Serie acumulada
+    st.subheader("Evolución (cashflow acumulado)")
+    ts = tx.dropna(subset=["date"]).sort_values("date").copy()
+    ts["cum_net"] = ts["cashflow"].fillna(0).cumsum()
+    st.line_chart(ts.set_index("date")[["cum_net"]])
 
-    # Por tipo
-    by_type = tx_cf2.groupby("type", dropna=False)["cashflow"].sum().sort_values()
-    st.subheader("Neto por tipo")
-    st.bar_chart(by_type)
+    # XIRR usando balance final como "valor final"
+    st.subheader("XIRR (cashflows + balance final como valor final)")
+    st.caption(
+        "Como este PDF es un extracto de cuenta, podemos estimar XIRR usando los cashflows "
+        "y añadiendo el balance final como flujo positivo final. "
+        "Si hay pocos movimientos, puede no ser estable."
+    )
+    if np.isfinite(last_balance_val) and pd.notna(last_date_val):
+        dates_np = ts["date"].values.astype("datetime64[ns]")
+        cf_np = ts["cashflow"].fillna(0).values.astype(float)
+
+        # Añadir valor final
+        dates_np2 = np.append(dates_np, np.datetime64(pd.Timestamp(last_date_val)))
+        cf_np2 = np.append(cf_np, float(last_balance_val))
+
+        rate = _xirr(dates_np2, cf_np2, guess=xirr_guess_pct / 100.0)
+        if rate is None:
+            st.warning("No se pudo calcular XIRR con estabilidad (faltan flujos con ambos signos o datos insuficientes).")
+        else:
+            st.success(f"XIRR estimada: {rate*100:,.2f}% anual")
+    else:
+        st.warning("No he encontrado balance final fiable en el PDF para calcular XIRR.")
 
 with tab2:
-    st.subheader("Transacciones (parseadas)")
-    if show_raw:
+    st.subheader("Transacciones parseadas")
+    if show_full_tx:
         st.dataframe(tx, use_container_width=True, hide_index=True)
     else:
         st.dataframe(
-            tx[["date", "type", "isin", "asset", "quantity", "amount", "cashflow", "balance", "desc"]],
+            tx[["date", "type", "category", "isin", "asset", "quantity", "amount", "cashflow", "balance", "desc"]],
             use_container_width=True,
             hide_index=True,
         )
 
-    csv_out = tx.to_csv(index=False).encode("utf-8")
-    st.download_button("⬇️ Descargar transacciones parseadas (CSV)", data=csv_out, file_name="tr_transactions_parsed.csv", mime="text/csv")
+    st.download_button(
+        "⬇️ Descargar transacciones (CSV)",
+        data=tx.to_csv(index=False).encode("utf-8"),
+        file_name="tr_transactions_parsed.csv",
+        mime="text/csv",
+    )
 
     if show_debug:
-        st.info("Diagnóstico rápido")
+        st.info("Diagnóstico")
         st.write("Filas:", len(tx))
         st.write("Tipos detectados:", sorted(tx["type"].dropna().unique().tolist()))
+        st.write("Categorías:", sorted(tx["category"].dropna().unique().tolist()))
 
 with tab3:
-    st.subheader("Activos (solo operaciones 'Operar')")
-    op = tx[tx["type"].str.lower().eq("operar")].copy()
-    if op.empty:
-        st.warning("No he encontrado filas de tipo 'Operar' en este PDF.")
+    st.subheader("Ganado/Perdido por activo (P&L REALIZADO)")
+
+    assets = compute_asset_pnl_avg_cost(tx)
+    if assets.empty:
+        st.warning("No hay suficientes operaciones 'Operar' con ISIN para calcular P&L por activo.")
     else:
-        op["side"] = np.where(
-            op["desc"].str.lower().str.contains(r"\bsell\b|venta|ejecución venta", regex=True, na=False),
-            "SELL",
-            "BUY"
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Activos con trades", f"{len(assets)}")
+        c2.metric("P&L realizado total", f"{assets['realized_pnl'].sum():,.2f} €")
+        c3.metric("Dinero neto invertido total", f"{assets['net_invested'].sum():,.2f} €")
+
+        st.caption(
+            "• realized_pnl = ganancias/pérdidas ya realizadas por ventas (no incluye lo no realizado). "
+            "• net_qty y avg_cost son aproximados a partir de compras/ventas."
         )
-
-        # Solo filas con ISIN
-        op = op[op["isin"].astype(str).str.len() > 0].copy()
-
-        # Agregados
-        def agg_asset(g: pd.DataFrame) -> pd.Series:
-            buy = g[g["side"] == "BUY"]
-            sell = g[g["side"] == "SELL"]
-
-            buy_qty = float(buy["quantity"].fillna(0).sum())
-            sell_qty = float(sell["quantity"].fillna(0).sum())
-            buy_amt = float(buy["amount"].fillna(0).sum())
-            sell_amt = float(sell["amount"].fillna(0).sum())
-
-            net_qty = buy_qty - sell_qty
-            net_cash_invested = buy_amt - sell_amt  # >0 = has puesto dinero neto; <0 = has sacado más de lo que pusiste
-
-            avg_buy = (buy_amt / buy_qty) if buy_qty > 0 else np.nan
-            avg_sell = (sell_amt / sell_qty) if sell_qty > 0 else np.nan
-
-            # nombre: el más frecuente no vacío
-            asset_name = g["asset"].replace("", np.nan).dropna()
-            asset_name = asset_name.mode().iloc[0] if not asset_name.empty else ""
-
-            return pd.Series({
-                "asset": asset_name,
-                "buy_qty": buy_qty,
-                "buy_amount": buy_amt,
-                "avg_buy": avg_buy,
-                "sell_qty": sell_qty,
-                "sell_amount": sell_amt,
-                "avg_sell": avg_sell,
-                "net_qty": net_qty,
-                "net_cash_invested": net_cash_invested,
-            })
-
-        assets = op.groupby("isin", dropna=False).apply(agg_asset).reset_index()
-        assets = assets.sort_values("net_cash_invested", ascending=False).reset_index(drop=True)
 
         st.dataframe(assets, use_container_width=True, hide_index=True)
 
-        st.subheader(f"Top {top_n} por cash neto invertido")
-        top = assets.head(top_n).set_index("isin")[["net_cash_invested"]]
-        st.bar_chart(top)
+        # Gráficos top
+        top_pnl = assets.sort_values("realized_pnl", ascending=False).head(top_n).set_index("isin")[["realized_pnl"]]
+        st.subheader(f"Top {top_n} por P&L realizado")
+        st.bar_chart(top_pnl)
 
-        csv_assets = assets.to_csv(index=False).encode("utf-8")
-        st.download_button("⬇️ Descargar resumen por ISIN (CSV)", data=csv_assets, file_name="tr_assets_by_isin.csv", mime="text/csv")
+        top_invested = assets.sort_values("net_invested", ascending=False).head(top_n).set_index("isin")[["net_invested"]]
+        st.subheader(f"Top {top_n} por dinero neto invertido")
+        st.bar_chart(top_invested)
+
+        st.download_button(
+            "⬇️ Descargar activos (CSV)",
+            data=assets.to_csv(index=False).encode("utf-8"),
+            file_name="tr_assets_realized_pnl.csv",
+            mime="text/csv",
+        )
+
+with tab4:
+    st.subheader("Resumen mensual (neto por categoría)")
+
+    mdf = tx.dropna(subset=["date"]).copy()
+    mdf["month"] = mdf["date"].dt.to_period("M").astype(str)
+    monthly = mdf.groupby(["month", "category"])["cashflow"].sum().reset_index()
+
+    # Pivot para chart
+    pivot = monthly.pivot(index="month", columns="category", values="cashflow").fillna(0.0).sort_index()
+    st.dataframe(pivot, use_container_width=True)
+
+    st.subheader("Barras apiladas (aprox.)")
+    st.bar_chart(pivot)
+
+    st.download_button(
+        "⬇️ Descargar resumen mensual (CSV)",
+        data=pivot.reset_index().to_csv(index=False).encode("utf-8"),
+        file_name="tr_monthly_summary.csv",
+        mime="text/csv",
+    )
