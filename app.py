@@ -19,12 +19,6 @@ except Exception:
 
 # ==========================================================
 # CONFIG + BANK DESIGN (Premium)
-# + 5 mejoras:
-#   1) Transición suave entre páginas (fade/slide)  ✅ (sin wrappers HTML cruzados)
-#   2) Skeleton loaders (shimmer)                  ✅ (1 solo markdown)
-#   3) Header sticky                               ✅
-#   4) Tooltips tipo banca (ⓘ)                     ✅
-#   5) Empty states premium                         ✅
 # ==========================================================
 st.set_page_config(page_title="TR Bank · Mi dinero (PDF)", page_icon="🏦", layout="wide")
 
@@ -151,7 +145,6 @@ div[data-testid="stMetricValue"]{
   letter-spacing: -0.6px !important;
   text-shadow: 0 10px 30px rgba(0,0,0,0.55);
 }
-div[data-testid="stMetricDelta"]{ color: rgba(245,248,255,0.82) !important; }
 
 div[data-testid="stAlert"]{
   border-radius: 16px;
@@ -164,46 +157,74 @@ div[data-testid="stAlert"] p, div[data-testid="stAlert"] span{ color: rgba(245,2
 div[data-testid="stPlotlyChart"]{ border-radius: 16px; overflow: hidden; }
 
 /* ==========================================================
-   BANK TABLE (HTML)
+   ✅ BANK TABLE FIX (lo que pediste)
+   - Scroll horizontal (para que se vea entera)
+   - Scroll vertical (si es larga)
+   - Header sticky dentro de la tabla
    ========================================================== */
 .bank-table-wrap{
   border: 1px solid rgba(255,255,255,0.10);
   background: rgba(10,16,28,0.40);
   border-radius: 16px;
-  overflow: hidden;
+
+  /* ✅ mostrar toda la tabla sin cortar */
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+
+  /* ✅ si hay muchas filas, scroll vertical dentro de la tarjeta */
+  max-height: 560px;
 }
+
 .bank-table{
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
+
+  /* ✅ permitir ancho natural (no “aplastar”) */
+  table-layout: auto;
+
+  /* ✅ evita compresión excesiva cuando hay muchas columnas */
+  min-width: 1040px;
 }
+
 .bank-table thead th{
-  background: rgba(255,255,255,0.05);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+
+  background: rgba(12,18,32,0.92);
+  backdrop-filter: blur(10px);
+
   color: rgba(245,248,255,0.92);
   font-size: 12px;
   letter-spacing: -0.2px;
   padding: 10px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.10);
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+
+  /* ✅ encabezados legibles */
+  white-space: normal;
+  word-break: break-word;
 }
+
 .bank-table tbody td{
   color: rgba(245,248,255,0.90);
   font-size: 13px;
   padding: 10px 10px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
   vertical-align: top;
+
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.bank-table tbody tr:nth-child(odd) td{ background: rgba(255,255,255,0.015); }
+.bank-table tbody tr:nth-child(odd) td{ background: rgba(255,255,255,0.012); }
 .bank-table tbody tr:hover td{ background: rgba(120,160,255,0.06); }
-.bank-table .num{ text-align: right; font-variant-numeric: tabular-nums; }
+
+.bank-table .num{ text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .bank-table .mono{ font-variant-numeric: tabular-nums; }
 .bank-table .wrap{ white-space: normal; }
 .bank-table .nowrap{ white-space: nowrap; }
 
 /* ==========================================================
-   (1) Transiciones suaves (sin wrappers HTML “abiertos”)
-   Se animan las piezas principales al re-renderizar.
+   Transiciones suaves
    ========================================================== */
 @keyframes pageIn {
   from { opacity: 0; transform: translate3d(0, 10px, 0); filter: blur(2px); }
@@ -214,7 +235,7 @@ div[data-testid="stPlotlyChart"]{ border-radius: 16px; overflow: hidden; }
 }
 
 /* ==========================================================
-   (2) Skeleton loaders (shimmer)
+   Skeleton loaders (shimmer)
    ========================================================== */
 @keyframes shimmer {
   0% { background-position: -700px 0; }
@@ -237,18 +258,14 @@ div[data-testid="stPlotlyChart"]{ border-radius: 16px; overflow: hidden; }
 .skel-grid{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
 @media (max-width: 1200px){ .skel-grid{ grid-template-columns: repeat(2, 1fr);} }
 
-/* ==========================================================
-   (3) Header sticky
-   ========================================================== */
+/* Header sticky */
 .sticky{
   position: sticky;
   top: 10px;
   z-index: 60;
 }
 
-/* ==========================================================
-   (4) Tooltips tipo banca
-   ========================================================== */
+/* Tooltips tipo banca */
 .tip{
   display:inline-flex;
   align-items:center;
@@ -285,9 +302,7 @@ div[data-testid="stPlotlyChart"]{ border-radius: 16px; overflow: hidden; }
 }
 .tip:hover[data-tip]::after{ opacity: 1; }
 
-/* ==========================================================
-   (5) Empty state premium
-   ========================================================== */
+/* Empty state premium */
 .empty{
   border: 1px dashed rgba(255,255,255,0.18);
   background: rgba(255,255,255,0.03);
@@ -332,7 +347,6 @@ def premium_empty(emoji: str, title: str, msg: str):
     )
 
 def skeleton_html() -> str:
-    # IMPORTANTE: HTML completo en UNA pieza (para evitar “cargas pegadas”)
     return """
 <div class="skel-wrap">
   <div class="skel-line" style="width: 38%;"></div>
@@ -395,6 +409,7 @@ def render_bank_table(
     numeric_cols: Optional[List[str]] = None,
     wrap_cols: Optional[List[str]] = None,
     col_widths: Optional[Dict[str, str]] = None,
+    min_width_px: int = 1040,  # ✅ ayuda extra si quieres forzar más ancho
 ):
     if df is None or df.empty:
         premium_empty("🗂️", "Sin datos para mostrar", "Prueba con otro rango de fechas o revisa el PDF.")
@@ -437,15 +452,14 @@ def render_bank_table(
                 cls.append("wrap")
             else:
                 cls.append("nowrap")
-            cls_str = " ".join([x for x in cls if x]).strip()
-            tds.append(f'<td class="{cls_str}">{safe}</td>')
+            tds.append(f'<td class="{" ".join(cls)}">{safe}</td>')
         rows_html.append("<tr>" + "".join(tds) + "</tr>")
 
     tbody = "<tbody>" + "".join(rows_html) + "</tbody>"
 
     table = f"""
 <div class="bank-table-wrap">
-  <table class="bank-table">
+  <table class="bank-table" style="min-width:{int(min_width_px)}px;">
     {colgroup}
     {thead}
     {tbody}
@@ -456,7 +470,7 @@ def render_bank_table(
 
 
 # =========================
-# PARSER (igual)
+# PARSER
 # =========================
 MONTHS = {
     "ene": 1, "feb": 2, "mar": 3, "abr": 4, "may": 5, "jun": 6,
@@ -881,7 +895,7 @@ def biggest_moves_table(txg: pd.DataFrame, n: int = 12) -> pd.DataFrame:
 
 
 # ==========================================================
-# SIDEBAR “BANCO”
+# SIDEBAR
 # ==========================================================
 with st.sidebar:
     st.markdown(
@@ -936,17 +950,13 @@ if not up:
 
 pdf_bytes = up.getvalue()
 
-# ==========================================================
-# (2) Skeleton loader robusto (se quita siempre)
-# ==========================================================
+# Skeleton loader robusto (se quita siempre)
 sk = st.empty()
 sk.markdown(skeleton_html(), unsafe_allow_html=True)
-
 try:
     with st.spinner("Leyendo tu PDF…"):
         tx = parse_tr_pdf_transactions(pdf_bytes)
 finally:
-    # Pase lo que pase (éxito o error), se borra el skeleton
     sk.empty()
 
 if tx.empty:
@@ -999,10 +1009,7 @@ intereses = float(by_cat.get("Intereses / rentabilidad", 0.0))
 
 last_balance_val = float(tx_f2["balance"].dropna().iloc[-1]) if tx_f2["balance"].notna().any() else float("nan")
 
-
-# ==========================================================
-# (3) Header sticky + (4) Tooltips
-# ==========================================================
+# Header sticky
 st.markdown(
     f"""
 <div class="sticky">
@@ -1070,9 +1077,9 @@ st.markdown(
 st.write("")
 st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
 
-# ==========================================================
+# =========================
 # CONTENIDO
-# ==========================================================
+# =========================
 if page == "Resumen":
     col1, col2 = st.columns([1.2, 0.8], gap="large")
 
@@ -1135,6 +1142,7 @@ elif page == "Movimientos":
             numeric_cols=["€ (entrada/salida)"],
             wrap_cols=["Descripción corta"],
             col_widths={"Descripción corta": "60%", "Día": "14%", "Categoria": "18%", "€ (entrada/salida)": "16%"},
+            min_width_px=980,
         )
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1154,7 +1162,7 @@ elif page == "PRO":
             premium_empty("🧩", "Sin categorías", "No hay datos por categoría en el rango.")
         else:
             df_tbl = tbl.rename("€ neto").reset_index().rename(columns={"index": "Categoría"})
-            render_bank_table(df_tbl, numeric_cols=["€ neto"], col_widths={"Categoría": "65%", "€ neto": "35%"})
+            render_bank_table(df_tbl, numeric_cols=["€ neto"], col_widths={"Categoría": "65%", "€ neto": "35%"}, min_width_px=760)
 
 else:  # Activos & Detalles
     colA, colB = st.columns([1.05, 0.95], gap="large")
@@ -1183,6 +1191,7 @@ else:  # Activos & Detalles
                     ]
                 ].copy()
 
+                # ✅ aquí está el arreglo: tabla scrollable + no se corta
                 render_bank_table(
                     show_assets_df,
                     numeric_cols=[
@@ -1193,7 +1202,16 @@ else:  # Activos & Detalles
                         "Coste medio (aprox.)",
                     ],
                     wrap_cols=["Activo"],
-                    col_widths={"Activo": "34%", "ISIN": "16%"},
+                    col_widths={
+                        "Activo": "28%",
+                        "ISIN": "16%",
+                        "Dinero metido (compras)": "14%",
+                        "Dinero recuperado (ventas)": "14%",
+                        "Ganado / perdido ya cerrado": "14%",
+                        "Cantidad que te queda (aprox.)": "7%",
+                        "Coste medio (aprox.)": "7%",
+                    },
+                    min_width_px=1100,
                 )
 
                 if PLOTLY_OK:
@@ -1217,6 +1235,7 @@ else:  # Activos & Detalles
                 numeric_cols=["cashflow", "balance", "quantity"],
                 wrap_cols=["desc"],
                 col_widths={"desc": "52%", "date": "14%", "type": "12%", "Categoria": "16%"},
+                min_width_px=1100,
             )
         else:
             premium_empty("🔎", "Detalles ocultos", "Activa ‘Ver tabla completa’ en el panel lateral.")
