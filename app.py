@@ -1,11 +1,14 @@
 import io
 import re
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, List, Tuple
 
 import numpy as np
 import pandas as pd
 import streamlit as st
 import pdfplumber
+
+import plotly.express as px
+import plotly.graph_objects as go
 
 
 # =========================
@@ -15,7 +18,7 @@ st.set_page_config(page_title="Trade Republic · PDF Analyzer", page_icon="📄"
 st.title("📄 Trade Republic · PDF Analyzer (Extracto de cuenta)")
 st.caption(
     "Sube un PDF de Trade Republic (extracto de cuenta). "
-    "La app parsea 'TRANSACCIONES DE CUENTA' aunque el PDF esté maquetado y NO tenga tablas reales."
+    "Parseo robusto de 'TRANSACCIONES DE CUENTA' + dashboard pro con gráficas."
 )
 
 # =========================
@@ -66,7 +69,7 @@ def _extract_text_all_pages(pdf_bytes: bytes) -> str:
 
 
 def _slice_transaction_section(lines: List[str]) -> List[str]:
-    """Coge la parte entre 'TRANSACCIONES DE CUENTA' y 'RESUMEN DEL BALANCE/NOTAS...' y limpia headers/footers."""
+    """Coge la parte entre 'TRANSACCIONES DE CUENTA' y 'RESUMEN...' y limpia headers/footers."""
     up = [l.upper() for l in lines]
 
     start = 0
@@ -118,7 +121,6 @@ def _year_prefix(line: str) -> Optional[Tuple[int, str]]:
 
 
 def _infer_type(desc: str) -> str:
-    # Orden importante
     candidates = [
         "Transacción con tarjeta",
         "Transferencia",
@@ -150,35 +152,27 @@ def _infer_side_and_cashflow(tx_type: str, desc: str, amount: Optional[float]) -
     t = (tx_type or "").lower()
     d = (desc or "").lower()
 
-    # Operar
     if "operar" in t:
         is_sell = bool(re.search(r"\bsell\b|venta|ejecución venta", d))
         side = "SELL" if is_sell else "BUY"
-        # SELL entra, BUY sale
         return side, float(+amount if is_sell else -amount)
 
-    # Rentabilidad/Interés -> entrada
     if ("rentabilidad" in t) or ("interés" in t) or ("interest" in t):
         return "NA", float(+amount)
 
-    # Comisiones -> salida
     if "comisión" in t or "comision" in t:
         return "NA", float(-amount)
 
-    # Tarjeta -> salida
     if "transacción con tarjeta" in t or (("transacción" in t) and ("tarjeta" in d)):
         return "NA", float(-amount)
 
-    # Transferencias: heurística
     if "transferencia" in t:
         if any(k in d for k in ["top up", "incoming", "ingreso", "accepted"]):
             return "NA", float(+amount)
         if any(k in d for k in ["payout", "outgoing", "retirada"]):
             return "NA", float(-amount)
-        # fallback: entrada
         return "NA", float(+amount)
 
-    # Otros: sin signo fiable => lo dejamos positivo
     return "NA", float(+amount)
 
 
@@ -199,9 +193,6 @@ def _extract_quantity(desc: str) -> Optional[float]:
 
 
 def _extract_asset_name(desc: str, isin: str) -> str:
-    """
-    En operaciones suele ser: "... for ISIN US... <NAME>, quantity: ..."
-    """
     if not desc or not isin or isin not in desc:
         return ""
     after = desc.split(isin, 1)[1].strip()
@@ -212,10 +203,6 @@ def _extract_asset_name(desc: str, isin: str) -> str:
 
 
 def parse_tr_pdf_transactions(pdf_bytes: bytes) -> pd.DataFrame:
-    """
-    Parser robusto para extractos Trade Republic con líneas partidas.
-    Extrae: date, type, desc, amount, balance, isin, asset, quantity, side, cashflow
-    """
     text = _extract_text_all_pages(pdf_bytes)
     lines = [l.strip() for l in text.splitlines() if l.strip()]
     lines = _slice_transaction_section(lines)
@@ -236,7 +223,6 @@ def parse_tr_pdf_transactions(pdf_bytes: bytes) -> pd.DataFrame:
         if rest:
             chunks.append(rest)
 
-        # Acumular hasta la siguiente fecha
         while i < len(lines) and not _date_prefix(lines[i]):
             yp = _year_prefix(lines[i])
             if yp:
@@ -255,7 +241,6 @@ def parse_tr_pdf_transactions(pdf_bytes: bytes) -> pd.DataFrame:
 
         desc = " ".join([c for c in chunks if c]).strip()
 
-        # Importes: cogemos los 2 últimos números del bloque (importe y balance)
         amts = re.findall(r"[-+]?\d{1,3}(?:\.\d{3})*(?:,\d{2})", desc)
         amount = _to_float_eu(amts[-2]) if len(amts) >= 2 else (_to_float_eu(amts[-1]) if len(amts) == 1 else None)
         balance = _to_float_eu(amts[-1]) if len(amts) >= 1 else None
@@ -276,8 +261,8 @@ def parse_tr_pdf_transactions(pdf_bytes: bytes) -> pd.DataFrame:
                 "asset": asset,
                 "quantity": qty,
                 "side": side,
-                "amount": amount,      # sin signo fiable
-                "cashflow": cashflow,  # con signo inferido
+                "amount": amount,
+                "cashflow": cashflow,
                 "balance": balance,
             }
         )
@@ -310,10 +295,6 @@ def _category(row_type: str, desc: str) -> str:
 
 
 def _xirr(dates: np.ndarray, cashflows: np.ndarray, guess: float = 0.10) -> Optional[float]:
-    """
-    XIRR por Newton-Raphson (tasa anual).
-    Requiere al menos un flujo negativo y uno positivo.
-    """
     if len(cashflows) < 2:
         return None
     if not (np.any(cashflows < 0) and np.any(cashflows > 0)):
@@ -348,15 +329,8 @@ def _xirr(dates: np.ndarray, cashflows: np.ndarray, guess: float = 0.10) -> Opti
 
 
 def compute_asset_pnl_avg_cost(tx: pd.DataFrame) -> pd.DataFrame:
-    """
-    Ganado/perdido por activo (ISIN) a partir de operaciones "Operar":
-    - P&L realizado (ventas vs coste medio)
-    - net_qty, avg_cost, buy/sell totals
-    Importante: sin precio actual, esto es P&L REALIZADO.
-    """
     op = tx[tx["type"].str.lower().eq("operar")].copy()
     op = op[op["isin"].astype(str).str.len() > 0].copy()
-
     if op.empty:
         return pd.DataFrame()
 
@@ -391,7 +365,6 @@ def compute_asset_pnl_avg_cost(tx: pd.DataFrame) -> pd.DataFrame:
                 total_cost_after = total_cost_before + amt
                 pos_qty += qty
                 avg_cost = (total_cost_after / pos_qty) if pos_qty > 0 else 0.0
-
                 buy_qty += qty
                 buy_amt += amt
 
@@ -409,7 +382,6 @@ def compute_asset_pnl_avg_cost(tx: pd.DataFrame) -> pd.DataFrame:
                 sell_amt += amt
 
             else:
-                # si el side no está bien, intentamos inferir por desc
                 desc = str(r.get("desc", "")).lower()
                 is_sell = bool(re.search(r"\bsell\b|venta|ejecución venta", desc))
                 if is_sell:
@@ -430,7 +402,11 @@ def compute_asset_pnl_avg_cost(tx: pd.DataFrame) -> pd.DataFrame:
                     buy_qty += qty
                     buy_amt += amt
 
-        net_invested = buy_amt - sell_amt  # >0: dinero neto puesto
+        net_invested = buy_amt - sell_amt
+        # ratio buy (para color en bubble)
+        denom = (buy_amt + sell_amt)
+        buy_ratio = (buy_amt / denom) if denom > 0 else np.nan
+
         rows.append({
             "isin": isin,
             "asset": asset_name,
@@ -443,13 +419,223 @@ def compute_asset_pnl_avg_cost(tx: pd.DataFrame) -> pd.DataFrame:
             "avg_cost": avg_cost,
             "realized_pnl": realized,
             "net_invested": net_invested,
+            "buy_ratio": buy_ratio,
             "first_trade": g["date"].min(),
             "last_trade": g["date"].max(),
         })
 
-    out = pd.DataFrame(rows)
-    out = out.sort_values("net_invested", ascending=False).reset_index(drop=True)
+    out = pd.DataFrame(rows).sort_values("net_invested", ascending=False).reset_index(drop=True)
     return out
+
+
+# =========================
+# VISUAL HELPERS (PLOTLY)
+# =========================
+def plot_waterfall_net_by_category(tx: pd.DataFrame):
+    by_cat = tx.groupby("category")["cashflow"].sum().sort_values()
+    cats = by_cat.index.tolist()
+    vals = by_cat.values.tolist()
+    net = float(np.nansum(vals))
+
+    fig = go.Figure(go.Waterfall(
+        name="Neto",
+        orientation="v",
+        measure=["relative"] * len(cats) + ["total"],
+        x=cats + ["NETO"],
+        y=vals + [net],
+        connector={"line": {"width": 1}},
+    ))
+    fig.update_layout(title="Waterfall · ¿De dónde sale mi neto?", showlegend=False, height=420)
+    return fig
+
+
+def plot_sankey_flows(tx: pd.DataFrame):
+    """
+    Sankey simple: ENTRADAS -> categorías positivas ; categorías negativas -> SALIDAS
+    (Usa netos por categoría; es súper explicativo aunque no sea doble entrada perfecta)
+    """
+    by_cat = tx.groupby("category")["cashflow"].sum().sort_values()
+    pos = by_cat[by_cat > 0]
+    neg = by_cat[by_cat < 0]
+
+    nodes = ["ENTRADAS"] + pos.index.tolist() + neg.index.tolist() + ["SALIDAS"]
+    node_index = {n: i for i, n in enumerate(nodes)}
+
+    sources = []
+    targets = []
+    values = []
+
+    # entradas a categorías positivas
+    for c, v in pos.items():
+        sources.append(node_index["ENTRADAS"])
+        targets.append(node_index[c])
+        values.append(float(v))
+
+    # categorías negativas a salidas (valor absoluto)
+    for c, v in neg.items():
+        sources.append(node_index[c])
+        targets.append(node_index["SALIDAS"])
+        values.append(float(abs(v)))
+
+    fig = go.Figure(data=[go.Sankey(
+        node=dict(label=nodes, pad=15, thickness=14),
+        link=dict(source=sources, target=targets, value=values),
+    )])
+    fig.update_layout(title="Sankey · Flujo neto (entradas vs salidas por categoría)", height=440)
+    return fig
+
+
+def plot_calendar_heatmap(tx: pd.DataFrame, value_col: str = "cashflow", mode: str = "sum"):
+    """
+    Heatmap tipo GitHub.
+    mode: 'sum' (€/día) o 'count' (#transacciones)
+    """
+    df = tx.dropna(subset=["date"]).copy()
+    df["day"] = df["date"].dt.date
+    if mode == "count":
+        daily = df.groupby("day").size().rename("value").reset_index()
+    else:
+        daily = df.groupby("day")[value_col].sum().rename("value").reset_index()
+
+    daily["day"] = pd.to_datetime(daily["day"])
+    iso = daily["day"].dt.isocalendar()
+    daily["iso_year"] = iso["year"].astype(int)
+    daily["iso_week"] = iso["week"].astype(int)
+    daily["dow"] = daily["day"].dt.weekday  # 0 Mon..6 Sun
+    dow_map = {0: "Lun", 1: "Mar", 2: "Mié", 3: "Jue", 4: "Vie", 5: "Sáb", 6: "Dom"}
+    daily["dow_name"] = daily["dow"].map(dow_map)
+
+    daily["week_label"] = daily["iso_year"].astype(str) + "-W" + daily["iso_week"].astype(str).str.zfill(2)
+    pivot = daily.pivot_table(index="dow_name", columns="week_label", values="value", aggfunc="sum").fillna(0.0)
+
+    # Orden días
+    pivot = pivot.reindex(["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"])
+
+    fig = px.imshow(
+        pivot,
+        aspect="auto",
+        title=("Heatmap calendario · " + ("# transacciones" if mode == "count" else "€ netos/día")),
+    )
+    fig.update_layout(height=360, margin=dict(l=10, r=10, t=60, b=10))
+    return fig
+
+
+def plot_donuts(tx: pd.DataFrame):
+    """
+    Donuts de distribución de entradas y salidas por categoría
+    """
+    df = tx.copy()
+    inflow = df[df["cashflow"] > 0].groupby("category")["cashflow"].sum().reset_index()
+    outflow = df[df["cashflow"] < 0].groupby("category")["cashflow"].sum().abs().reset_index()
+
+    fig1 = px.pie(inflow, names="category", values="cashflow", hole=0.55, title="Donut · Entradas por categoría")
+    fig2 = px.pie(outflow, names="category", values="cashflow", hole=0.55, title="Donut · Salidas por categoría")
+    fig1.update_layout(height=380)
+    fig2.update_layout(height=380)
+    return fig1, fig2
+
+
+def plot_histograms(tx: pd.DataFrame):
+    df = tx.dropna(subset=["cashflow"]).copy()
+    df["abs_cashflow"] = df["cashflow"].abs()
+
+    fig = px.histogram(
+        df,
+        x="abs_cashflow",
+        color="category",
+        nbins=35,
+        title="Distribución de importes (|cashflow|) por categoría",
+    )
+    fig.update_layout(height=420)
+    return fig
+
+
+def plot_lollipop_top_days(tx: pd.DataFrame, kind: str = "out", top_n: int = 10):
+    """
+    kind='out' -> top días con mayor salida (más negativo)
+    kind='in' -> top días con mayor entrada (más positivo)
+    """
+    df = tx.dropna(subset=["date", "cashflow"]).copy()
+    df["day"] = df["date"].dt.date
+    daily = df.groupby("day")["cashflow"].sum().reset_index()
+    daily["day"] = pd.to_datetime(daily["day"])
+
+    if kind == "out":
+        sel = daily.nsmallest(top_n, "cashflow").copy()
+        title = f"Top {top_n} días con mayor SALIDA"
+    else:
+        sel = daily.nlargest(top_n, "cashflow").copy()
+        title = f"Top {top_n} días con mayor ENTRADA"
+
+    sel = sel.sort_values("cashflow")
+    x = sel["cashflow"].values
+    y = sel["day"].dt.strftime("%Y-%m-%d").values
+
+    fig = go.Figure()
+    for xi, yi in zip(x, y):
+        fig.add_trace(go.Scatter(x=[0, xi], y=[yi, yi], mode="lines", showlegend=False))
+    fig.add_trace(go.Scatter(x=x, y=y, mode="markers", name="día"))
+
+    fig.update_layout(title=title, height=420, xaxis_title="€ netos del día", yaxis_title="Fecha")
+    return fig
+
+
+def plot_double_line_balance_vs_cum(tx: pd.DataFrame):
+    df = tx.dropna(subset=["date"]).sort_values("date").copy()
+    df["cum_net"] = df["cashflow"].fillna(0).cumsum()
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df["date"], y=df["cum_net"], mode="lines", name="Cashflow acumulado"))
+    if df["balance"].notna().any():
+        fig.add_trace(go.Scatter(x=df["date"], y=df["balance"], mode="lines", name="Balance (PDF)"))
+    fig.update_layout(title="Balance (PDF) vs Cashflow acumulado", height=420)
+    return fig
+
+
+def plot_monthly_cohort(tx: pd.DataFrame):
+    df = tx.dropna(subset=["date"]).copy()
+    df["month"] = df["date"].dt.to_period("M").astype(str)
+    g = df.groupby(["month", "category"])["cashflow"].sum().reset_index()
+
+    # % de composición por mes en términos de |cashflow|
+    g["abs"] = g["cashflow"].abs()
+    tot = g.groupby("month")["abs"].transform("sum").replace(0, np.nan)
+    g["share"] = (g["abs"] / tot) * 100.0
+
+    pivot = g.pivot_table(index="category", columns="month", values="share", aggfunc="sum").fillna(0.0)
+    fig = px.imshow(pivot, aspect="auto", title="Cohort mensual · % composición por categoría (|cashflow|)")
+    fig.update_layout(height=420, margin=dict(l=10, r=10, t=60, b=10))
+    return fig, pivot
+
+
+def plot_bubble_assets(assets: pd.DataFrame):
+    df = assets.copy()
+    df["label"] = np.where(df["asset"].astype(str).str.len() > 0, df["asset"], df["isin"])
+    fig = px.scatter(
+        df,
+        x="net_invested",
+        y="realized_pnl",
+        size="trades",
+        color="buy_ratio",
+        hover_name="label",
+        hover_data=["isin", "asset", "net_qty", "avg_cost", "buy_amount", "sell_amount"],
+        title="Bubble · Activos: neto invertido vs P&L realizado (tamaño = nº trades)",
+    )
+    fig.update_layout(height=520)
+    return fig
+
+
+def plot_drawdown_cum(tx: pd.DataFrame):
+    df = tx.dropna(subset=["date"]).sort_values("date").copy()
+    df["cum_net"] = df["cashflow"].fillna(0).cumsum()
+    df["peak"] = df["cum_net"].cummax()
+    df["drawdown"] = df["cum_net"] - df["peak"]
+
+    fig1 = px.line(df, x="date", y="cum_net", title="Cashflow acumulado")
+    fig1.update_layout(height=360)
+
+    fig2 = px.line(df, x="date", y="drawdown", title="Drawdown del cashflow acumulado (desde máximos)")
+    fig2.update_layout(height=360)
+    return fig1, fig2
 
 
 # =========================
@@ -459,7 +645,7 @@ with st.sidebar:
     st.header("Subir PDF")
     up = st.file_uploader("Extracto Trade Republic (PDF)", type=["pdf"])
     st.divider()
-    top_n = st.slider("Top N activos", 5, 30, 12)
+    top_n = st.slider("Top N", 5, 30, 12)
     show_full_tx = st.checkbox("Mostrar transacciones completas", value=False)
     show_debug = st.checkbox("Modo diagnóstico", value=False)
     xirr_guess_pct = st.slider("XIRR guess inicial (%)", 0, 50, 10)
@@ -487,33 +673,38 @@ if tx.empty:
     )
     st.stop()
 
-# Categorización
+# Features base
 tx = tx.copy()
-tx["category"] = [
-    _category(t, d) for t, d in zip(tx["type"].astype(str), tx["desc"].astype(str))
-]
-
-# Asegurar numéricos
+tx["category"] = [_category(t, d) for t, d in zip(tx["type"].astype(str), tx["desc"].astype(str))]
 tx["cashflow"] = pd.to_numeric(tx["cashflow"], errors="coerce")
 tx["amount"] = pd.to_numeric(tx["amount"], errors="coerce")
 tx["balance"] = pd.to_numeric(tx["balance"], errors="coerce")
 
 # =========================
+# PRECOMPUTE
+# =========================
+ts = tx.dropna(subset=["date"]).sort_values("date").copy()
+ts["cum_net"] = ts["cashflow"].fillna(0).cumsum()
+
+last_balance = tx["balance"].dropna()
+last_balance_val = float(last_balance.iloc[-1]) if not last_balance.empty else float("nan")
+last_date = tx["date"].dropna()
+last_date_val = last_date.iloc[-1] if not last_date.empty else pd.NaT
+
+assets = compute_asset_pnl_avg_cost(tx)
+
+# =========================
 # TABS
 # =========================
-tab1, tab2, tab3, tab4 = st.tabs(["📌 Resumen", "🧾 Transacciones", "📦 Activos (P&L)", "📅 Mensual"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["📌 Resumen", "🧾 Transacciones", "📦 Activos (P&L)", "📅 Mensual", "📊 Gráficas Pro"]
+)
 
 with tab1:
     st.subheader("Resumen de cuenta (a partir del PDF)")
-
     total_in = float(tx.loc[tx["cashflow"] > 0, "cashflow"].sum(skipna=True))
     total_out = float(-tx.loc[tx["cashflow"] < 0, "cashflow"].sum(skipna=True))
     net = float(tx["cashflow"].sum(skipna=True))
-
-    last_balance = tx["balance"].dropna()
-    last_balance_val = float(last_balance.iloc[-1]) if not last_balance.empty else float("nan")
-    last_date = tx["date"].dropna()
-    last_date_val = last_date.iloc[-1] if not last_date.empty else pd.NaT
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Entradas (+)", f"{total_in:,.2f} €")
@@ -521,29 +712,27 @@ with tab1:
     c3.metric("Neto", f"{net:,.2f} €")
     c4.metric("Balance final (PDF)", f"{last_balance_val:,.2f} €" if np.isfinite(last_balance_val) else "N/A")
 
-    # Neto por categoría
     st.subheader("Neto por categoría")
     by_cat = tx.groupby("category")["cashflow"].sum().sort_values()
-    st.bar_chart(by_cat)
+    fig_cat = px.bar(by_cat.reset_index(), x="cashflow", y="category", orientation="h", title="Neto por categoría")
+    fig_cat.update_layout(height=420)
+    st.plotly_chart(fig_cat, use_container_width=True)
 
-    # Serie acumulada
     st.subheader("Evolución (cashflow acumulado)")
-    ts = tx.dropna(subset=["date"]).sort_values("date").copy()
-    ts["cum_net"] = ts["cashflow"].fillna(0).cumsum()
-    st.line_chart(ts.set_index("date")[["cum_net"]])
+    fig_ts = px.line(ts, x="date", y="cum_net", title="Cashflow acumulado")
+    fig_ts.update_layout(height=380)
+    st.plotly_chart(fig_ts, use_container_width=True)
 
-    # XIRR usando balance final como "valor final"
     st.subheader("XIRR (cashflows + balance final como valor final)")
     st.caption(
-        "Como este PDF es un extracto de cuenta, podemos estimar XIRR usando los cashflows "
-        "y añadiendo el balance final como flujo positivo final. "
-        "Si hay pocos movimientos, puede no ser estable."
+        "Estimación XIRR usando cashflows y añadiendo el balance final como flujo positivo final. "
+        "Útil para extractos aunque no tengas precios de mercado por activo."
     )
+
     if np.isfinite(last_balance_val) and pd.notna(last_date_val):
         dates_np = ts["date"].values.astype("datetime64[ns]")
         cf_np = ts["cashflow"].fillna(0).values.astype(float)
 
-        # Añadir valor final
         dates_np2 = np.append(dates_np, np.datetime64(pd.Timestamp(last_date_val)))
         cf_np2 = np.append(cf_np, float(last_balance_val))
 
@@ -561,7 +750,7 @@ with tab2:
         st.dataframe(tx, use_container_width=True, hide_index=True)
     else:
         st.dataframe(
-            tx[["date", "type", "category", "isin", "asset", "quantity", "amount", "cashflow", "balance", "desc"]],
+            tx[["date", "type", "category", "isin", "asset", "quantity", "side", "amount", "cashflow", "balance", "desc"]],
             use_container_width=True,
             hide_index=True,
         )
@@ -581,8 +770,6 @@ with tab2:
 
 with tab3:
     st.subheader("Ganado/Perdido por activo (P&L REALIZADO)")
-
-    assets = compute_asset_pnl_avg_cost(tx)
     if assets.empty:
         st.warning("No hay suficientes operaciones 'Operar' con ISIN para calcular P&L por activo.")
     else:
@@ -595,17 +782,12 @@ with tab3:
             "• realized_pnl = ganancias/pérdidas ya realizadas por ventas (no incluye lo no realizado). "
             "• net_qty y avg_cost son aproximados a partir de compras/ventas."
         )
-
         st.dataframe(assets, use_container_width=True, hide_index=True)
 
-        # Gráficos top
-        top_pnl = assets.sort_values("realized_pnl", ascending=False).head(top_n).set_index("isin")[["realized_pnl"]]
-        st.subheader(f"Top {top_n} por P&L realizado")
-        st.bar_chart(top_pnl)
-
-        top_invested = assets.sort_values("net_invested", ascending=False).head(top_n).set_index("isin")[["net_invested"]]
-        st.subheader(f"Top {top_n} por dinero neto invertido")
-        st.bar_chart(top_invested)
+        top_pnl = assets.sort_values("realized_pnl", ascending=False).head(top_n)
+        fig_top_pnl = px.bar(top_pnl, x="realized_pnl", y="isin", orientation="h", title=f"Top {top_n} · P&L realizado")
+        fig_top_pnl.update_layout(height=420)
+        st.plotly_chart(fig_top_pnl, use_container_width=True)
 
         st.download_button(
             "⬇️ Descargar activos (CSV)",
@@ -616,17 +798,22 @@ with tab3:
 
 with tab4:
     st.subheader("Resumen mensual (neto por categoría)")
-
     mdf = tx.dropna(subset=["date"]).copy()
     mdf["month"] = mdf["date"].dt.to_period("M").astype(str)
     monthly = mdf.groupby(["month", "category"])["cashflow"].sum().reset_index()
 
-    # Pivot para chart
     pivot = monthly.pivot(index="month", columns="category", values="cashflow").fillna(0.0).sort_index()
     st.dataframe(pivot, use_container_width=True)
 
-    st.subheader("Barras apiladas (aprox.)")
-    st.bar_chart(pivot)
+    fig_month = px.bar(
+        monthly,
+        x="month",
+        y="cashflow",
+        color="category",
+        title="Mensual · Neto por categoría",
+    )
+    fig_month.update_layout(height=460)
+    st.plotly_chart(fig_month, use_container_width=True)
 
     st.download_button(
         "⬇️ Descargar resumen mensual (CSV)",
@@ -634,3 +821,58 @@ with tab4:
         file_name="tr_monthly_summary.csv",
         mime="text/csv",
     )
+
+with tab5:
+    st.subheader("Gráficas Pro (más visual y comprensible)")
+
+    # 1) Waterfall
+    st.plotly_chart(plot_waterfall_net_by_category(tx), use_container_width=True)
+
+    # 2) Sankey
+    st.plotly_chart(plot_sankey_flows(tx), use_container_width=True)
+
+    # 3) Heatmap calendario (dos modos)
+    c1, c2 = st.columns(2)
+    with c1:
+        st.plotly_chart(plot_calendar_heatmap(tx, mode="count"), use_container_width=True)
+    with c2:
+        st.plotly_chart(plot_calendar_heatmap(tx, mode="sum"), use_container_width=True)
+
+    # 4) Donuts
+    d1, d2 = plot_donuts(tx)
+    c3, c4 = st.columns(2)
+    with c3:
+        st.plotly_chart(d1, use_container_width=True)
+    with c4:
+        st.plotly_chart(d2, use_container_width=True)
+
+    # 5) Histograma importes
+    st.plotly_chart(plot_histograms(tx), use_container_width=True)
+
+    # 6) Lollipop top días
+    c5, c6 = st.columns(2)
+    with c5:
+        st.plotly_chart(plot_lollipop_top_days(tx, kind="out", top_n=10), use_container_width=True)
+    with c6:
+        st.plotly_chart(plot_lollipop_top_days(tx, kind="in", top_n=10), use_container_width=True)
+
+    # 7) Línea doble balance vs cum_net
+    st.plotly_chart(plot_double_line_balance_vs_cum(tx), use_container_width=True)
+
+    # 8) Cohort mensual (heatmap)
+    fig_cohort, cohort_pivot = plot_monthly_cohort(tx)
+    st.plotly_chart(fig_cohort, use_container_width=True)
+
+    # 9) Bubble por activo
+    if assets.empty:
+        st.info("Bubble por activo: no hay suficientes operaciones 'Operar' con ISIN en este PDF.")
+    else:
+        st.plotly_chart(plot_bubble_assets(assets), use_container_width=True)
+
+    # 10) Drawdown
+    fig_cum, fig_dd = plot_drawdown_cum(tx)
+    c7, c8 = st.columns(2)
+    with c7:
+        st.plotly_chart(fig_cum, use_container_width=True)
+    with c8:
+        st.plotly_chart(fig_dd, use_container_width=True)
