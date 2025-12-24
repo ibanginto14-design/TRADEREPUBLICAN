@@ -1,6 +1,7 @@
 import io
 import re
-from typing import Optional, List, Tuple
+import html
+from typing import Optional, List, Tuple, Dict
 
 import numpy as np
 import pandas as pd
@@ -17,7 +18,7 @@ except Exception:
 
 
 # ==========================================================
-# CONFIG + BANK DESIGN (FIX: tablas + barra superior blanca)
+# CONFIG + BANK DESIGN (FIX: métricas legibles + tablas sin blanco)
 # ==========================================================
 st.set_page_config(page_title="TR Bank · Mi dinero (PDF)", page_icon="🏦", layout="wide")
 
@@ -27,9 +28,9 @@ st.markdown(
 /* ==========================================================
    BANK APP THEME (Premium)
    FIXES:
-   - Oculta la barra superior blanca de Streamlit (header)
-   - Tablas (st.dataframe) con estilo oscuro integrado
-   - Tipos/labels siempre legibles
+   - Métricas (st.metric) legibles en fondo oscuro
+   - Tablas SIN fondo blanco (usamos HTML table “bank”)
+   - Ocultar header blanco superior de Streamlit
    ========================================================== */
 
 /* ----- Ocultar header/menú/footer de Streamlit (el “cuadro blanco” arriba) ----- */
@@ -49,7 +50,7 @@ html, body, [data-testid="stAppViewContainer"]{ height: 100%; }
     radial-gradient(1000px 700px at 50% 92%, rgba(255,120,200,0.10) 0%, rgba(0,0,0,0) 60%),
     linear-gradient(180deg, rgba(10,16,28,1) 0%, rgba(8,12,22,1) 45%, rgba(8,10,18,1) 100%);
   position: relative;
-  color: rgba(245,248,255,0.92);
+  color: rgba(245,248,255,0.92) !important;
 }
 
 /* Grid sutil */
@@ -93,7 +94,7 @@ section[data-testid="stSidebar"]{
 }
 section[data-testid="stSidebar"] > div{ padding-top: 1.0rem; }
 
-/* Tipografía general: forzar legibilidad */
+/* Tipografía */
 h1,h2,h3{ letter-spacing: -0.4px; color: rgba(245,248,255,0.96) !important; }
 p, li, label, .stMarkdown, .stMarkdown * { color: rgba(245,248,255,0.90) !important; }
 .small { font-size: 12px; opacity: .82; }
@@ -152,6 +153,16 @@ p, li, label, .stMarkdown, .stMarkdown * { color: rgba(245,248,255,0.90) !import
 .kpi .kv{ font-size: 22px; font-weight: 950; letter-spacing:-0.5px; color: rgba(245,248,255,0.98) !important; }
 .kpi .ks{ font-size: 12px; opacity: .78; margin-top: 6px; }
 
+/* FIX: st.metric (valores que se veían “apagados”) */
+div[data-testid="stMetricLabel"]{ color: rgba(245,248,255,0.78) !important; }
+div[data-testid="stMetricValue"]{
+  color: rgba(245,248,255,0.98) !important;
+  font-weight: 950 !important;
+  letter-spacing: -0.6px !important;
+  text-shadow: 0 10px 30px rgba(0,0,0,0.55);
+}
+div[data-testid="stMetricDelta"]{ color: rgba(245,248,255,0.82) !important; }
+
 /* Alerts */
 div[data-testid="stAlert"]{
   border-radius: 16px;
@@ -165,44 +176,42 @@ div[data-testid="stAlert"] p, div[data-testid="stAlert"] span{ color: rgba(245,2
 div[data-testid="stPlotlyChart"]{ border-radius: 16px; overflow: hidden; }
 
 /* ==========================================================
-   DATAFRAMES: “modo oscuro” para evitar el contraste blanco
-   (St.DataFrame de Streamlit usa elementos BaseWeb)
+   BANK TABLE (HTML) — evita el DataFrame blanco
    ========================================================== */
-div[data-testid="stDataFrame"]{
-  border-radius: 16px !important;
-  overflow: hidden !important;
-  border: 1px solid rgba(255,255,255,0.10) !important;
-  background: rgba(10,16,28,0.50) !important;
+.bank-table-wrap{
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(10,16,28,0.40);
+  border-radius: 16px;
+  overflow: hidden;
 }
-
-/* Contenedor interno */
-div[data-testid="stDataFrame"] [data-testid="stTable"]{
-  background: rgba(10,16,28,0.50) !important;
+.bank-table{
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
 }
-
-/* Cabecera + celdas */
-div[data-testid="stDataFrame"] thead tr th{
-  background: rgba(255,255,255,0.04) !important;
-  color: rgba(245,248,255,0.92) !important;
-  border-bottom: 1px solid rgba(255,255,255,0.10) !important;
+.bank-table thead th{
+  background: rgba(255,255,255,0.05);
+  color: rgba(245,248,255,0.92);
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: -0.2px;
+  padding: 10px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
 }
-div[data-testid="stDataFrame"] tbody tr td{
-  background: rgba(0,0,0,0) !important;
-  color: rgba(245,248,255,0.90) !important;
-  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+.bank-table tbody td{
+  color: rgba(245,248,255,0.90);
+  font-size: 13px;
+  padding: 10px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  vertical-align: top;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
-/* Alternancia sutil */
-div[data-testid="stDataFrame"] tbody tr:nth-child(odd) td{
-  background: rgba(255,255,255,0.015) !important;
-}
-
-/* Scrollbar (chrome) */
-div[data-testid="stDataFrame"] ::-webkit-scrollbar{ height: 10px; width: 10px; }
-div[data-testid="stDataFrame"] ::-webkit-scrollbar-thumb{
-  background: rgba(255,255,255,0.14); border-radius: 999px;
-}
-div[data-testid="stDataFrame"] ::-webkit-scrollbar-track{ background: rgba(0,0,0,0); }
+.bank-table tbody tr:nth-child(odd) td{ background: rgba(255,255,255,0.015); }
+.bank-table .num{ text-align: right; font-variant-numeric: tabular-nums; }
+.bank-table .mono{ font-variant-numeric: tabular-nums; }
+.bank-table .wrap{ white-space: normal; }
+.bank-table .nowrap{ white-space: nowrap; }
 </style>
 
 <div class="bank-blobs">
@@ -213,6 +222,7 @@ div[data-testid="stDataFrame"] ::-webkit-scrollbar-track{ background: rgba(0,0,0
 """,
     unsafe_allow_html=True,
 )
+
 
 # =========================
 # Helpers visual
@@ -255,31 +265,97 @@ def _apply_plotly_bank_theme(fig):
     return fig
 
 
-def style_df_dark(df: pd.DataFrame, money_cols: Optional[List[str]] = None) -> "pd.io.formats.style.Styler":
+def fmt_eur(x: float) -> str:
+    try:
+        return f"{float(x):,.2f} €"
+    except Exception:
+        return "—"
+
+
+def fmt_num(x: float) -> str:
+    try:
+        return f"{float(x):,.2f}"
+    except Exception:
+        return "—"
+
+
+def short_desc(s: str, n: int = 110) -> str:
+    s = str(s or "").strip()
+    return (s[: n - 1] + "…") if len(s) > n else s
+
+
+def render_bank_table(
+    df: pd.DataFrame,
+    numeric_cols: Optional[List[str]] = None,
+    wrap_cols: Optional[List[str]] = None,
+    col_widths: Optional[Dict[str, str]] = None,
+):
     """
-    Estilo oscuro para tablas. Úsalo para evitar el “rectángulo blanco” en st.dataframe.
+    Render tabla oscura (HTML) para evitar el DataFrame blanco.
+    - numeric_cols: columnas alineadas a la derecha + formato 2 decimales
+    - wrap_cols: columnas que permiten wrap (p.ej. descripción)
+    - col_widths: ancho por columna (CSS), ej {"Descripción": "55%"}
     """
-    sty = df.style
-    base_bg = "rgba(10,16,28,0.45)"
-    header_bg = "rgba(255,255,255,0.05)"
-    grid = "rgba(255,255,255,0.08)"
-    txt = "rgba(245,248,255,0.90)"
+    if df is None or df.empty:
+        st.info("No hay datos para mostrar.")
+        return
 
-    sty = sty.set_table_styles(
-        [
-            {"selector": "table", "props": [("background-color", base_bg), ("color", txt), ("border", f"1px solid {grid}"), ("border-collapse", "collapse")]},
-            {"selector": "thead th", "props": [("background-color", header_bg), ("color", txt), ("border-bottom", f"1px solid {grid}")]},
-            {"selector": "tbody td", "props": [("border-bottom", f"1px solid rgba(255,255,255,0.06)"), ("color", txt)]},
-        ]
-    )
+    numeric_cols = numeric_cols or []
+    wrap_cols = wrap_cols or []
+    col_widths = col_widths or {}
 
-    # alineación numérica (si procede)
-    if money_cols:
-        for c in money_cols:
-            if c in df.columns:
-                sty = sty.format({c: "{:,.2f}"})
+    df2 = df.copy()
 
-    return sty
+    # Formateo numérico (2 decimales) para que no salga 308.690000 etc.
+    for c in numeric_cols:
+        if c in df2.columns:
+            df2[c] = pd.to_numeric(df2[c], errors="coerce").map(lambda v: "—" if pd.isna(v) else f"{v:,.2f}")
+
+    # Escape HTML
+    cols = list(df2.columns)
+
+    # colgroup para widths si se pasan
+    colgroup = ""
+    if col_widths:
+        colgroup = "<colgroup>" + "".join(
+            f'<col style="width:{html.escape(col_widths.get(c, ""))}">' if col_widths.get(c) else "<col>"
+            for c in cols
+        ) + "</colgroup>"
+
+    thead = "<thead><tr>" + "".join(f"<th>{html.escape(str(c))}</th>" for c in cols) + "</tr></thead>"
+
+    rows_html = []
+    for _, row in df2.iterrows():
+        tds = []
+        for c in cols:
+            v = row[c]
+            txt = "" if pd.isna(v) else str(v)
+            safe = html.escape(txt)
+            cls = []
+            if c in numeric_cols:
+                cls.append("num mono")
+            else:
+                cls.append("mono" if pd.api.types.is_numeric_dtype(df[c]) else "")
+            if c in wrap_cols:
+                cls.append("wrap")
+            else:
+                cls.append("nowrap")
+            cls_str = " ".join([x for x in cls if x]).strip()
+            tds.append(f'<td class="{cls_str}">{safe}</td>')
+        rows_html.append("<tr>" + "".join(tds) + "</tr>")
+
+    tbody = "<tbody>" + "".join(rows_html) + "</tbody>"
+
+    table = f"""
+<div class="bank-table-wrap">
+  <table class="bank-table">
+    {colgroup}
+    {thead}
+    {tbody}
+  </table>
+</div>
+"""
+    st.markdown(table, unsafe_allow_html=True)
 
 
 # =========================
@@ -542,18 +618,6 @@ def category_simple(row_type: str, desc: str) -> str:
     return "Otros"
 
 
-def fmt_eur(x: float) -> str:
-    try:
-        return f"{float(x):,.2f} €"
-    except Exception:
-        return "—"
-
-
-def short_desc(s: str, n: int = 110) -> str:
-    s = str(s or "").strip()
-    return (s[: n - 1] + "…") if len(s) > n else s
-
-
 # =========================
 # ACTIVOS (igual)
 # =========================
@@ -619,7 +683,7 @@ def compute_asset_realized_pnl(tx: pd.DataFrame) -> pd.DataFrame:
 
 
 # =========================
-# GRÁFICOS (igual) + theme
+# GRÁFICOS (igual)
 # =========================
 def fig_in_out_net(total_in: float, total_out: float, net: float):
     if not PLOTLY_OK:
@@ -747,7 +811,7 @@ def biggest_moves_table(txg: pd.DataFrame, n: int = 12) -> pd.DataFrame:
     df["Impacto"] = df["cashflow"].abs()
     df = df.sort_values("Impacto", ascending=False).head(n).copy()
     df["Día"] = df["date"].dt.strftime("%Y-%m-%d")
-    df["€ (entrada/salida)"] = df["cashflow"]
+    df["€ (entrada/salida)"] = pd.to_numeric(df["cashflow"], errors="coerce")
     df["Descripción corta"] = df["desc"].apply(lambda x: short_desc(x, 120))
     return df[["Día", "Categoria", "€ (entrada/salida)", "Descripción corta"]]
 
@@ -871,7 +935,7 @@ last_balance_val = float(tx_f2["balance"].dropna().iloc[-1]) if tx_f2["balance"]
 
 
 # ==========================================================
-# HEADER tipo “Home banca” (ahora se verá bien sin barra blanca)
+# HEADER tipo “Home banca”
 # ==========================================================
 st.markdown(
     f"""
@@ -920,7 +984,7 @@ st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
 
 
 # ==========================================================
-# CONTENIDO (mismo contenido, pero tablas integradas)
+# CONTENIDO
 # ==========================================================
 if page == "Resumen":
     col1, col2 = st.columns([1.2, 0.8], gap="large")
@@ -983,8 +1047,13 @@ elif page == "Movimientos":
     if big.empty:
         st.info("No hay suficientes movimientos con fecha/importe.")
     else:
-        # tabla oscura
-        st.dataframe(style_df_dark(big), use_container_width=True, hide_index=True)
+        # ✅ tabla oscura + números bien formateados
+        render_bank_table(
+            big,
+            numeric_cols=["€ (entrada/salida)"],
+            wrap_cols=["Descripción corta"],
+            col_widths={"Descripción corta": "60%", "Día": "14%", "Categoria": "18%", "€ (entrada/salida)": "16%"},
+        )
     st.markdown("</div>", unsafe_allow_html=True)
 
 elif page == "PRO":
@@ -1003,7 +1072,7 @@ elif page == "PRO":
             st.info("No hay datos por categoría.")
         else:
             df_tbl = tbl.rename("€ neto").reset_index().rename(columns={"index": "Categoría"})
-            st.dataframe(style_df_dark(df_tbl), use_container_width=True, hide_index=True)
+            render_bank_table(df_tbl, numeric_cols=["€ neto"], col_widths={"Categoría": "65%", "€ neto": "35%"})
 
 else:  # Activos & Detalles
     colA, colB = st.columns([1.05, 0.95], gap="large")
@@ -1015,6 +1084,7 @@ else:  # Activos & Detalles
             if assets.empty:
                 st.info("No veo operaciones de inversión suficientes en este rango.")
             else:
+                # métricas (ahora se ven bien por CSS de st.metric)
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Activos", f"{len(assets)}")
                 c2.metric("Ganado/perdido ya cerrado", fmt_eur(assets["Ganado / perdido ya cerrado"].sum()))
@@ -1032,18 +1102,18 @@ else:  # Activos & Detalles
                     ]
                 ].copy()
 
-                st.dataframe(
-                    style_df_dark(
-                        show_assets_df,
-                        money_cols=[
-                            "Dinero metido (compras)",
-                            "Dinero recuperado (ventas)",
-                            "Ganado / perdido ya cerrado",
-                            "Coste medio (aprox.)",
-                        ],
-                    ),
-                    use_container_width=True,
-                    hide_index=True,
+                # ✅ tabla oscura + sin decimales “feos”
+                render_bank_table(
+                    show_assets_df,
+                    numeric_cols=[
+                        "Dinero metido (compras)",
+                        "Dinero recuperado (ventas)",
+                        "Ganado / perdido ya cerrado",
+                        "Cantidad que te queda (aprox.)",
+                        "Coste medio (aprox.)",
+                    ],
+                    wrap_cols=["Activo"],
+                    col_widths={"Activo": "34%", "ISIN": "16%"},
                 )
 
                 if PLOTLY_OK:
@@ -1060,7 +1130,15 @@ else:  # Activos & Detalles
         st.markdown('<div class="glass soft"><div class="t">🔎 Detalles</div><div class="s">Tabla completa (solo si quieres comprobar líneas del PDF).</div>', unsafe_allow_html=True)
         if show_details:
             details = tx_f2[["date", "type", "Categoria", "cashflow", "balance", "isin", "asset", "quantity", "desc"]].copy()
-            st.dataframe(style_df_dark(details), use_container_width=True, hide_index=True)
+            # formato de fecha + descripción recortada para no reventar la tabla
+            details["date"] = details["date"].astype(str).str.replace(" 00:00:00", "", regex=False)
+            details["desc"] = details["desc"].apply(lambda x: short_desc(x, 160))
+            render_bank_table(
+                details,
+                numeric_cols=["cashflow", "balance", "quantity"],
+                wrap_cols=["desc"],
+                col_widths={"desc": "52%", "date": "14%", "type": "12%", "Categoria": "16%"},
+            )
         else:
             st.info("Activa 'Ver tabla completa' en el panel lateral.")
         st.markdown("</div>", unsafe_allow_html=True)
