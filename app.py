@@ -16,114 +16,194 @@ except Exception:
     PLOTLY_OK = False
 
 
-# =========================
-# CONFIG + NUEVO DISEÑO (sin cambiar “qué datos doy”)
-# =========================
-st.set_page_config(page_title="Trade Republic · Mi dinero (PDF)", page_icon="💶", layout="wide")
+# ==========================================================
+# CONFIG + "BANK APP" DESIGN (solo diseño: mismos datos/salidas)
+# ==========================================================
+st.set_page_config(page_title="TR Bank · Mi dinero (PDF)", page_icon="🏦", layout="wide")
 
 st.markdown(
     """
 <style>
-/* --- App frame --- */
-.block-container { padding-top: 0.9rem; padding-bottom: 2.2rem; max-width: 1260px; }
-section[data-testid="stSidebar"] { border-right: 1px solid rgba(255,255,255,0.10); }
+/* =========================
+   BANK APP THEME (Premium)
+   ========================= */
 
-/* --- Typography --- */
-h1,h2,h3 { letter-spacing: -0.35px; }
+/* Layout */
+.block-container { padding-top: 1.0rem; padding-bottom: 2.2rem; max-width: 1320px; }
+
+/* Fondo "de banco": gradientes + grid + blobs */
+html, body, [data-testid="stAppViewContainer"]{
+  height: 100%;
+}
+[data-testid="stAppViewContainer"]{
+  background:
+    radial-gradient(1200px 700px at 12% 8%, rgba(120,160,255,0.22) 0%, rgba(0,0,0,0) 60%),
+    radial-gradient(900px 600px at 88% 18%, rgba(120,255,220,0.16) 0%, rgba(0,0,0,0) 62%),
+    radial-gradient(1000px 700px at 50% 92%, rgba(255,120,200,0.10) 0%, rgba(0,0,0,0) 60%),
+    linear-gradient(180deg, rgba(10,16,28,1) 0%, rgba(8,12,22,1) 45%, rgba(8,10,18,1) 100%);
+  position: relative;
+}
+
+/* Grid sutil */
+[data-testid="stAppViewContainer"]::before{
+  content:"";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 54px 54px;
+  mask-image: radial-gradient(900px 600px at 50% 20%, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 68%);
+  opacity: 0.18;
+}
+
+/* Blobs animados (fondo más “vivo”) */
+@keyframes floaty {
+  0%   { transform: translate3d(0,0,0) scale(1); opacity: .65; }
+  50%  { transform: translate3d(20px,-12px,0) scale(1.03); opacity: .78; }
+  100% { transform: translate3d(0,0,0) scale(1); opacity: .65; }
+}
+.bank-blobs{
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.blob{
+  position: absolute;
+  width: 540px;
+  height: 540px;
+  filter: blur(42px);
+  border-radius: 40% 60% 45% 55% / 55% 45% 55% 45%;
+  animation: floaty 12s ease-in-out infinite;
+  opacity: .72;
+}
+.blob.b1{ left: -120px; top: -140px; background: rgba(90,140,255,0.18); animation-duration: 13s; }
+.blob.b2{ right: -180px; top: 40px; background: rgba(80,255,220,0.13); animation-duration: 16s; }
+.blob.b3{ left: 35%; bottom: -240px; background: rgba(255,120,200,0.10); animation-duration: 18s; }
+
+/* Sidebar como “panel bancario” */
+section[data-testid="stSidebar"]{
+  background: rgba(255,255,255,0.02) !important;
+  border-right: 1px solid rgba(255,255,255,0.10);
+  backdrop-filter: blur(10px);
+}
+section[data-testid="stSidebar"] > div{
+  padding-top: 1.1rem;
+}
+
+/* Tipografía */
+h1,h2,h3{ letter-spacing: -0.4px; }
 p, li, label { line-height: 1.35; }
 .small { font-size: 12px; opacity: .78; }
 .muted { opacity: .82; }
 
-/* --- Top bar --- */
-.topbar {
-  display:flex; align-items:center; justify-content:space-between; gap:12px;
-  padding: 14px 16px;
-  border-radius: 18px;
+/* Cards glass */
+.glass{
+  position: relative;
+  z-index: 1;
   border: 1px solid rgba(255,255,255,0.10);
-  background: linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
-  margin-bottom: 12px;
+  background: rgba(255,255,255,0.035);
+  border-radius: 18px;
+  padding: 14px 14px;
+  backdrop-filter: blur(12px);
 }
-.brand {
-  display:flex; align-items:center; gap:10px;
+.glass.soft{
+  background: rgba(255,255,255,0.028);
 }
-.brand .logo {
-  width: 36px; height: 36px; border-radius: 12px;
+.glass .t{ font-weight: 900; letter-spacing: -0.3px; font-size: 15px; }
+.glass .s{ font-size: 12px; opacity: .78; margin-top: 4px; }
+.hr{ height: 1px; background: rgba(255,255,255,0.10); margin: 14px 0; border-radius: 999px; }
+
+/* Header bank bar */
+.bankbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+}
+.brand{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+}
+.brand .mark{
+  width: 40px; height: 40px;
+  border-radius: 14px;
   display:flex; align-items:center; justify-content:center;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
   font-size: 18px;
 }
-.brand .txt .t { font-weight: 850; font-size: 16px; letter-spacing:-0.3px; }
-.brand .txt .s { font-size: 12px; opacity: .78; margin-top: 2px; }
-.chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
-.chip{
-  display:inline-flex; align-items:center; gap:8px;
+.brand .name{ font-weight: 950; font-size: 16px; letter-spacing:-0.3px; }
+.brand .tag{ font-size: 12px; opacity: .76; margin-top: 2px; }
+
+.pills{ display:flex; flex-wrap:wrap; gap: 8px; justify-content:flex-end; }
+.pill{
+  display:inline-flex; align-items:center; gap: 8px;
   padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.13);
+  border: 1px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.04);
   font-size: 12px;
 }
 
-/* --- Cards --- */
-.card {
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.03);
-  border-radius: 18px;
-  padding: 12px 14px;
-}
-.card .ct { font-weight: 800; margin-bottom: 2px; letter-spacing:-0.25px; }
-.card .cs { font-size: 12px; opacity: .78; margin-bottom: 10px; }
-
-/* --- KPI row --- */
+/* KPI row */
 .kpis { display:grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
 @media (max-width: 1200px){ .kpis { grid-template-columns: repeat(2, 1fr); } }
-.kpi {
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.035);
-  border-radius: 18px;
-  padding: 12px 14px;
-}
-.kpi .t { font-size: 12px; opacity: .80; margin-bottom: 6px; }
-.kpi .v { font-size: 22px; font-weight: 900; letter-spacing:-0.5px; }
-.kpi .s { font-size: 12px; opacity: .70; margin-top: 6px; }
-
-/* --- Section divider --- */
-.hr { height: 1px; background: rgba(255,255,255,0.10); margin: 14px 0; border-radius: 999px; }
-
-/* --- Dataframe --- */
-div[data-testid="stDataFrame"] {
-  border-radius: 16px; overflow:hidden; border: 1px solid rgba(255,255,255,0.10);
-}
-
-/* --- Navigation (radio) look like segmented control --- */
-div[role="radiogroup"] > label { padding: 0 !important; }
-.navwrap {
+.kpi{
   border: 1px solid rgba(255,255,255,0.10);
   background: rgba(255,255,255,0.03);
+  border-radius: 18px;
+  padding: 12px 14px;
+  backdrop-filter: blur(10px);
+}
+.kpi .kt{ font-size: 12px; opacity: .80; margin-bottom: 6px; }
+.kpi .kv{ font-size: 22px; font-weight: 950; letter-spacing:-0.5px; }
+.kpi .ks{ font-size: 12px; opacity: .70; margin-top: 6px; }
+
+/* Dataframe */
+div[data-testid="stDataFrame"]{
   border-radius: 16px;
-  padding: 6px 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.10);
+}
+
+/* Tabs: más “bank-app” */
+.stTabs [data-baseweb="tab-list"]{
+  gap: 6px;
+}
+.stTabs [data-baseweb="tab"]{
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.stTabs [aria-selected="true"]{
+  background: rgba(255,255,255,0.06);
+}
+
+/* Botones */
+.stButton > button, .stDownloadButton > button{
+  border-radius: 14px !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+  background: rgba(255,255,255,0.06) !important;
 }
 </style>
+
+<div class="bank-blobs">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+</div>
 """,
     unsafe_allow_html=True,
 )
 
 
-def fmt_eur(x: float) -> str:
-    try:
-        return f"{float(x):,.2f} €"
-    except Exception:
-        return "—"
-
-
-def short_desc(s: str, n: int = 110) -> str:
-    s = str(s or "").strip()
-    return (s[: n - 1] + "…") if len(s) > n else s
-
-
 # =========================
-# PARSER (sin cambios de datos)
+# PARSER (sin tocar el “tipo de datos”)
 # =========================
 MONTHS = {
     "ene": 1, "feb": 2, "mar": 3, "abr": 4, "may": 5, "jun": 6,
@@ -359,7 +439,7 @@ def parse_tr_pdf_transactions(pdf_bytes: bytes) -> pd.DataFrame:
 
 
 # =========================
-# CATEGORÍAS “CLARAS” (sin cambios)
+# LENGUAJE SIMPLE (igual)
 # =========================
 def category_simple(row_type: str, desc: str) -> str:
     t = (row_type or "").lower()
@@ -382,8 +462,20 @@ def category_simple(row_type: str, desc: str) -> str:
     return "Otros"
 
 
+def fmt_eur(x: float) -> str:
+    try:
+        return f"{float(x):,.2f} €"
+    except Exception:
+        return "—"
+
+
+def short_desc(s: str, n: int = 110) -> str:
+    s = str(s or "").strip()
+    return (s[: n - 1] + "…") if len(s) > n else s
+
+
 # =========================
-# ACTIVOS (sin cambios)
+# ACTIVOS (igual)
 # =========================
 def compute_asset_realized_pnl(tx: pd.DataFrame) -> pd.DataFrame:
     op = tx[tx["type"].astype(str).str.lower().eq("operar")].copy()
@@ -454,7 +546,7 @@ def fig_in_out_net(total_in: float, total_out: float, net: float):
         return None
     df = pd.DataFrame({"Concepto": ["Entradas", "Salidas", "Neto"], "€": [total_in, total_out, net]})
     fig = px.bar(df, x="Concepto", y="€", title="⚖️ Entradas vs Salidas (y neto)")
-    fig.update_layout(height=320, margin=dict(l=8, r=8, t=50, b=8))
+    fig.update_layout(height=320, margin=dict(l=10, r=10, t=55, b=10))
     return fig
 
 
@@ -473,7 +565,7 @@ def donut_outflows(by_cat: pd.Series, top_n: int = 8):
         df = pd.concat([df, pd.DataFrame([{"Concepto": "Otros (resto)", "€": rest}])], ignore_index=True)
 
     fig = px.pie(df, names="Concepto", values="€", hole=0.62, title="🍩 Donut · Salidas")
-    fig.update_layout(height=330, margin=dict(l=8, r=8, t=50, b=8))
+    fig.update_layout(height=330, margin=dict(l=10, r=10, t=55, b=10))
     return fig
 
 
@@ -491,7 +583,7 @@ def fig_balance_or_estimated(txg: pd.DataFrame):
         d2 = df.dropna(subset=["cashflow"]).copy()
         d2["Saldo estimado (desde 0)"] = d2["cashflow"].cumsum()
         fig = px.line(d2, x="date", y="Saldo estimado (desde 0)", title="📈 Evolución estimada (entradas/salidas)")
-    fig.update_layout(height=360, margin=dict(l=8, r=8, t=50, b=8))
+    fig.update_layout(height=360, margin=dict(l=10, r=10, t=55, b=10))
     return fig
 
 
@@ -513,7 +605,7 @@ def fig_monthly_net(txg: pd.DataFrame):
     fig.update_layout(
         title="📅 Mes a mes: neto y acumulado",
         height=360,
-        margin=dict(l=8, r=8, t=50, b=8),
+        margin=dict(l=10, r=10, t=55, b=10),
         yaxis=dict(title="€ neto"),
         yaxis2=dict(title="€ acumulado", overlaying="y", side="right"),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -540,7 +632,7 @@ def fig_timeline_bubbles(txg: pd.DataFrame):
         hover_data={"Categoria": True, "desc": True, "cashflow": ":.2f", "date": True, "Impacto_clip": False},
         title="🫧 Movimientos (puntos grandes = impacto grande)",
     )
-    fig.update_layout(height=390, margin=dict(l=8, r=8, t=50, b=8))
+    fig.update_layout(height=390, margin=dict(l=10, r=10, t=55, b=10))
     return fig
 
 
@@ -563,7 +655,7 @@ def fig_stack_monthly_out_by_category(txg: pd.DataFrame, top_n: int = 8):
 
     grp = out.groupby(["Mes", "Categoria2"])["€"].sum().reset_index()
     fig = px.bar(grp, x="Mes", y="€", color="Categoria2", title="📊 PRO · Gasto por mes (apilado por categoría)")
-    fig.update_layout(height=390, margin=dict(l=8, r=8, t=50, b=8))
+    fig.update_layout(height=390, margin=dict(l=10, r=10, t=55, b=10))
     return fig
 
 
@@ -579,23 +671,55 @@ def biggest_moves_table(txg: pd.DataFrame, n: int = 12) -> pd.DataFrame:
     return df[["Día", "Categoria", "€ (entrada/salida)", "Descripción corta"]]
 
 
-# =========================
-# SIDEBAR (limpia)
-# =========================
+# ==========================================================
+# SIDEBAR “BANCO”
+# ==========================================================
 with st.sidebar:
-    st.subheader("📄 Extracto")
-    up = st.file_uploader("Sube tu PDF", type=["pdf"])
+    st.markdown(
+        """
+<div class="glass soft">
+  <div class="bankbar">
+    <div class="brand">
+      <div class="mark">🏦</div>
+      <div>
+        <div class="name">TR Bank</div>
+        <div class="tag">Panel de cuenta · Extracto PDF</div>
+      </div>
+    </div>
+  </div>
+  <div class="hr"></div>
+  <div class="small muted">Sube tu extracto y te lo traduzco a “dinero real”: entradas, salidas y evolución.</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
 
-    st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
-    st.subheader("⚙️ Controles")
+    st.write("")
+    st.markdown('<div class="glass">', unsafe_allow_html=True)
+    st.markdown("**📄 Extracto de cuenta**")
+    up = st.file_uploader("Sube el PDF", type=["pdf"], label_visibility="collapsed")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    view = st.radio("Modo", ["Cómodo", "PRO"], index=0)
+    st.write("")
+    st.markdown('<div class="glass soft">', unsafe_allow_html=True)
+    st.markdown("**🧭 Navegación**")
+    page = st.radio(
+        "Sección",
+        ["Resumen", "Movimientos", "PRO", "Activos & Detalles"],
+        index=0,
+        label_visibility="collapsed",
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    with st.expander("Opciones", expanded=True):
-        show_assets = st.checkbox("Mostrar activos (si operaste)", value=True)
-        show_details = st.checkbox("Ver tabla completa", value=False)
-        donut_top = st.slider("Donut: Top categorías", 4, 12, 8)
-        top_moves_n = st.slider("Top movimientos", 5, 25, 12)
+    st.write("")
+    st.markdown('<div class="glass soft">', unsafe_allow_html=True)
+    st.markdown("**⚙️ Preferencias**")
+    donut_top = st.slider("Donut: Top categorías", 4, 12, 8)
+    top_moves_n = st.slider("Top movimientos", 5, 25, 12)
+    show_assets = st.checkbox("Mostrar activos (si operaste)", value=True)
+    show_details = st.checkbox("Ver tabla completa (detalles)", value=False)
+    st.markdown("</div>", unsafe_allow_html=True)
+
 
 if not up:
     st.info("⬅️ Sube tu PDF para empezar.")
@@ -604,7 +728,12 @@ if not up:
 pdf_bytes = up.getvalue()
 
 with st.spinner("Leyendo tu PDF…"):
-    tx = parse_tr_pdf_transactions(pdf_bytes)
+    try:
+        tx = parse_tr_pdf_transactions(pdf_bytes)
+    except Exception as e:
+        st.error("No he podido leer el PDF sin errores. Prueba con otro extracto o vuelve a descargarlo.")
+        st.exception(e)
+        st.stop()
 
 if tx.empty:
     st.error(
@@ -613,7 +742,7 @@ if tx.empty:
     )
     st.stop()
 
-# Postprocess (sin cambiar datos)
+# Postprocess (igual)
 tx = tx.copy()
 tx["cashflow"] = pd.to_numeric(tx["cashflow"], errors="coerce")
 tx["balance"] = pd.to_numeric(tx["balance"], errors="coerce")
@@ -621,7 +750,7 @@ tx["amount"] = pd.to_numeric(tx["amount"], errors="coerce")
 tx["Categoria"] = [category_simple(t, d) for t, d in zip(tx["type"].astype(str), tx["desc"].astype(str))]
 txg = tx.dropna(subset=["date"]).sort_values("date").copy()
 
-# Rango de fechas
+# Rango de fechas (igual, pero con UI bancaria)
 if not txg.empty:
     dmin = pd.to_datetime(txg["date"].min()).date()
     dmax = pd.to_datetime(txg["date"].max()).date()
@@ -629,9 +758,11 @@ else:
     dmin = dmax = pd.Timestamp.today().date()
 
 with st.sidebar:
-    st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
-    st.subheader("🗓️ Rango")
-    date_range = st.date_input("Fechas", value=(dmin, dmax))
+    st.write("")
+    st.markdown('<div class="glass">', unsafe_allow_html=True)
+    st.markdown("**🗓️ Rango de fechas**")
+    date_range = st.date_input("Fechas", value=(dmin, dmax), label_visibility="collapsed")
+    st.markdown("</div>", unsafe_allow_html=True)
 
 if isinstance(date_range, tuple) and len(date_range) == 2:
     start_d, end_d = date_range
@@ -642,7 +773,7 @@ txg_f = txg[(txg["date"].dt.date >= start_d) & (txg["date"].dt.date <= end_d)].c
 tx_f2 = tx.dropna(subset=["date"]).copy()
 tx_f2 = tx_f2[(tx_f2["date"].dt.date >= start_d) & (tx_f2["date"].dt.date <= end_d)].copy()
 
-# Métricas (sin cambios)
+# Métricas (igual)
 total_in = float(tx_f2.loc[tx_f2["cashflow"] > 0, "cashflow"].sum(skipna=True))
 total_out = float(-tx_f2.loc[tx_f2["cashflow"] < 0, "cashflow"].sum(skipna=True))
 net = float(tx_f2["cashflow"].sum(skipna=True))
@@ -658,112 +789,94 @@ intereses = float(by_cat.get("Intereses / rentabilidad", 0.0))
 last_balance_val = float(tx_f2["balance"].dropna().iloc[-1]) if tx_f2["balance"].notna().any() else float("nan")
 
 
-# =========================
-# TOPBAR (nuevo look)
-# =========================
+# ==========================================================
+# HEADER tipo “Home banca”
+# ==========================================================
 st.markdown(
     f"""
-<div class="topbar">
-  <div class="brand">
-    <div class="logo">💶</div>
-    <div class="txt">
-      <div class="t">Trade Republic · Mi dinero</div>
-      <div class="s">Entradas, salidas, en qué se fue, evolución y movimientos clave</div>
+<div class="glass">
+  <div class="bankbar">
+    <div class="brand">
+      <div class="mark">🏦</div>
+      <div>
+        <div class="name">Panel de cuenta</div>
+        <div class="tag">Rango: {start_d} → {end_d} · Extracto: Trade Republic</div>
+      </div>
     </div>
-  </div>
-  <div class="chips">
-    <div class="chip">📌 Entradas <b>{fmt_eur(total_in)}</b></div>
-    <div class="chip">📤 Salidas <b>{fmt_eur(total_out)}</b></div>
-    <div class="chip">🧮 Neto <b>{fmt_eur(net)}</b></div>
-    <div class="chip">🗓️ {start_d} → {end_d}</div>
+    <div class="pills">
+      <div class="pill">📌 Entradas <b>{fmt_eur(total_in)}</b></div>
+      <div class="pill">📤 Salidas <b>{fmt_eur(total_out)}</b></div>
+      <div class="pill">🧮 Neto <b>{fmt_eur(net)}</b></div>
+    </div>
   </div>
 </div>
 """,
     unsafe_allow_html=True,
 )
 
+st.write("")
 if np.isfinite(last_balance_val):
-    st.success(f"Según el PDF (en este rango), tu **saldo final** es: **{fmt_eur(last_balance_val)}**")
+    st.success(f"Saldo final (según el PDF, en este rango): **{fmt_eur(last_balance_val)}**")
 else:
-    st.warning("No he encontrado un **balance final** fiable en el PDF. Aun así, analizo entradas/salidas.")
+    st.warning("No he encontrado un balance final fiable en el PDF. Aun así, analizo entradas/salidas.")
 
-st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
-
-# =========================
-# KPIs (mismo contenido)
-# =========================
+st.write("")
 st.markdown(
     f"""
 <div class="kpis">
-  <div class="kpi"><div class="t">Dinero que metiste</div><div class="v">{fmt_eur(metiste)}</div><div class="s">Ingresos/aportaciones</div></div>
-  <div class="kpi"><div class="t">Dinero que sacaste</div><div class="v">{fmt_eur(sacaste)}</div><div class="s">Retiradas fuera</div></div>
-  <div class="kpi"><div class="t">Gastos con tarjeta</div><div class="v">{fmt_eur(tarjeta)}</div><div class="s">Pagos / compras</div></div>
-  <div class="kpi"><div class="t">Comisiones</div><div class="v">{fmt_eur(comisiones)}</div><div class="s">Costes cobrados</div></div>
-  <div class="kpi"><div class="t">Intereses / rentabilidad</div><div class="v">{fmt_eur(intereses)}</div><div class="s">Abonos / rendimientos</div></div>
+  <div class="kpi"><div class="kt">Dinero que metiste</div><div class="kv">{fmt_eur(metiste)}</div><div class="ks">Ingresos/aportaciones</div></div>
+  <div class="kpi"><div class="kt">Dinero que sacaste</div><div class="kv">{fmt_eur(sacaste)}</div><div class="ks">Retiradas fuera</div></div>
+  <div class="kpi"><div class="kt">Gastos con tarjeta</div><div class="kv">{fmt_eur(tarjeta)}</div><div class="ks">Pagos / compras</div></div>
+  <div class="kpi"><div class="kt">Comisiones</div><div class="kv">{fmt_eur(comisiones)}</div><div class="ks">Costes cobrados</div></div>
+  <div class="kpi"><div class="kt">Intereses / rentabilidad</div><div class="kv">{fmt_eur(intereses)}</div><div class="ks">Abonos / rendimientos</div></div>
 </div>
 """,
     unsafe_allow_html=True,
 )
 
+st.write("")
 st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
 
-# =========================
-# NAVEGACIÓN (diseño nuevo, datos iguales)
-# =========================
-cnav1, cnav2 = st.columns([1.5, 4.5], gap="large")
 
-with cnav1:
-    st.markdown('<div class="navwrap">', unsafe_allow_html=True)
-    page = st.radio(
-        "Navegación",
-        ["Dashboard", "Movimientos", "PRO", "Activos & Detalles"],
-        label_visibility="collapsed",
-        index=0,
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
+# ==========================================================
+# CONTENIDO (mismo “qué” — nuevo “cómo”)
+# ==========================================================
+if page == "Resumen":
+    col1, col2 = st.columns([1.2, 0.8], gap="large")
 
-    st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
-    st.caption("Consejo: si algo no cuadra, ve a **Detalles** y revisamos el texto del PDF.")
-
-with cnav2:
-    if page == "Dashboard":
-        st.markdown('<div class="card"><div class="ct">📌 Dashboard</div><div class="cs">Vista cómoda: lo esencial sin ruido.</div></div>', unsafe_allow_html=True)
-        st.write("")
-
-        r1a, r1b = st.columns([1.25, 0.95], gap="large")
-        with r1a:
-            st.markdown('<div class="card"><div class="ct">⚖️ Entradas vs Salidas</div><div class="cs">Lo más directo para entender el periodo.</div>', unsafe_allow_html=True)
-            fig = fig_in_out_net(total_in, total_out, net)
-            if fig is not None:
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.bar_chart(pd.Series({"Entradas": total_in, "Salidas": total_out, "Neto": net}))
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            st.write("")
-            st.markdown('<div class="card"><div class="ct">📈 Evolución del saldo</div><div class="cs">Balance del PDF o estimación acumulando entradas/salidas.</div>', unsafe_allow_html=True)
-            fig = fig_balance_or_estimated(txg_f)
-            if fig is not None:
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No se pudo generar la evolución (o falta Plotly).")
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        with r1b:
-            st.markdown('<div class="card"><div class="ct">🍩 Donut de salidas</div><div class="cs">En qué se fue el dinero (agrupado).</div>', unsafe_allow_html=True)
-            fig = donut_outflows(by_cat, top_n=donut_top)
-            if fig is not None:
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                outs = by_cat[by_cat < 0].abs().sort_values(ascending=False).head(donut_top)
-                if outs.empty:
-                    st.info("No veo salidas en el rango.")
-                else:
-                    st.bar_chart(outs)
-            st.markdown("</div>", unsafe_allow_html=True)
+    with col1:
+        st.markdown('<div class="glass"><div class="t">⚖️ Entradas vs Salidas</div><div class="s">La lectura más rápida del periodo.</div>', unsafe_allow_html=True)
+        fig = fig_in_out_net(total_in, total_out, net)
+        if fig is not None:
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.bar_chart(pd.Series({"Entradas": total_in, "Salidas": total_out, "Neto": net}))
+        st.markdown("</div>", unsafe_allow_html=True)
 
         st.write("")
-        st.markdown('<div class="card"><div class="ct">📅 Mes a mes</div><div class="cs">Neto mensual y acumulado (menos ruido que el día a día).</div>', unsafe_allow_html=True)
+        st.markdown('<div class="glass"><div class="t">📈 Evolución del saldo</div><div class="s">Balance del PDF o estimación acumulando entradas/salidas.</div>', unsafe_allow_html=True)
+        fig = fig_balance_or_estimated(txg_f)
+        if fig is not None:
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No se pudo generar la evolución (o falta Plotly).")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with col2:
+        st.markdown('<div class="glass"><div class="t">🍩 Donut de salidas</div><div class="s">En qué se fue el dinero (agrupado).</div>', unsafe_allow_html=True)
+        fig = donut_outflows(by_cat, top_n=donut_top)
+        if fig is not None:
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            outs = by_cat[by_cat < 0].abs().sort_values(ascending=False).head(donut_top)
+            if outs.empty:
+                st.info("No veo salidas en el rango.")
+            else:
+                st.bar_chart(outs)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.write("")
+        st.markdown('<div class="glass soft"><div class="t">📅 Mes a mes</div><div class="s">Neto mensual + acumulado.</div>', unsafe_allow_html=True)
         fig, mdf = fig_monthly_net(txg_f)
         if fig is not None:
             st.plotly_chart(fig, use_container_width=True)
@@ -774,119 +887,105 @@ with cnav2:
                 st.info("No hay suficientes datos para mes a mes.")
         st.markdown("</div>", unsafe_allow_html=True)
 
-    elif page == "Movimientos":
-        st.markdown('<div class="card"><div class="ct">🫧 Movimientos</div><div class="cs">Picos y días que movieron la aguja.</div></div>', unsafe_allow_html=True)
-        st.write("")
+elif page == "Movimientos":
+    st.markdown('<div class="glass"><div class="t">🫧 Movimientos</div><div class="s">Picos y días que movieron la aguja.</div>', unsafe_allow_html=True)
+    fig = fig_timeline_bubbles(txg_f)
+    if fig is not None:
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Plotly no está disponible.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown('<div class="card"><div class="ct">Timeline</div><div class="cs">Puntos grandes = movimientos grandes.</div>', unsafe_allow_html=True)
-        fig = fig_timeline_bubbles(txg_f)
-        if fig is not None:
-            st.plotly_chart(fig, use_container_width=True)
+    st.write("")
+    st.markdown('<div class="glass soft"><div class="t">Top movimientos por impacto</div><div class="s">Los más importantes para entender “qué pasó”.</div>', unsafe_allow_html=True)
+    big = biggest_moves_table(txg_f, n=top_moves_n)
+    if big.empty:
+        st.info("No hay suficientes movimientos con fecha/importe.")
+    else:
+        st.dataframe(big, use_container_width=True, hide_index=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+elif page == "PRO":
+    st.markdown('<div class="glass"><div class="t">📊 PRO</div><div class="s">Más detalle (sin cambiar el contenido que pides).</div>', unsafe_allow_html=True)
+    fig = fig_stack_monthly_out_by_category(txg_f, top_n=8)
+    if fig is not None:
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No hay suficientes salidas (o falta Plotly) para el apilado mensual.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.write("")
+    with st.expander("Ver tabla de categorías netas (por demostrar el cálculo)"):
+        tbl = by_cat.sort_values()
+        if tbl.empty:
+            st.info("No hay datos por categoría.")
         else:
-            st.info("Plotly no está disponible.")
-        st.markdown("</div>", unsafe_allow_html=True)
+            st.dataframe(
+                tbl.rename("€ neto").reset_index().rename(columns={"index": "Categoría"}),
+                use_container_width=True,
+                hide_index=True,
+            )
 
-        st.write("")
-        st.markdown('<div class="card"><div class="ct">Top movimientos por impacto</div><div class="cs">Los más importantes para entender “qué pasó”.</div>', unsafe_allow_html=True)
-        big = biggest_moves_table(txg_f, n=top_moves_n)
-        if big.empty:
-            st.info("No hay suficientes movimientos con fecha/importe para listar.")
-        else:
-            st.dataframe(big, use_container_width=True, hide_index=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+else:  # Activos & Detalles
+    colA, colB = st.columns([1.05, 0.95], gap="large")
 
-    elif page == "PRO":
-        st.markdown('<div class="card"><div class="ct">📊 PRO</div><div class="cs">Más detalle, manteniendo limpieza visual.</div></div>', unsafe_allow_html=True)
-        st.write("")
-
-        st.markdown('<div class="card"><div class="ct">Gasto por mes (apilado por categoría)</div><div class="cs">Qué categoría dominó cada mes.</div>', unsafe_allow_html=True)
-        fig = fig_stack_monthly_out_by_category(txg_f, top_n=8)
-        if fig is not None:
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No hay suficientes salidas para construir este gráfico (o falta Plotly).")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        st.write("")
-        with st.expander("Ver tabla de categorías netas"):
-            tbl = by_cat.sort_values()
-            if tbl.empty:
-                st.info("No hay datos por categoría.")
+    with colA:
+        st.markdown('<div class="glass"><div class="t">📦 Activos (si operaste)</div><div class="s">Resultado ya cerrado y estimación de lo que queda.</div>', unsafe_allow_html=True)
+        if show_assets:
+            assets = compute_asset_realized_pnl(tx_f2)
+            if assets.empty:
+                st.info("No veo operaciones de inversión suficientes en este rango.")
             else:
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Activos", f"{len(assets)}")
+                c2.metric("Ganado/perdido ya cerrado", fmt_eur(assets["Ganado / perdido ya cerrado"].sum()))
+                c3.metric("Dinero metido (compras)", fmt_eur(assets["Dinero metido (compras)"].sum()))
+
                 st.dataframe(
-                    tbl.rename("€ neto")
-                    .reset_index()
-                    .rename(columns={"index": "Categoría"}),
+                    assets[
+                        [
+                            "Activo",
+                            "ISIN",
+                            "Dinero metido (compras)",
+                            "Dinero recuperado (ventas)",
+                            "Ganado / perdido ya cerrado",
+                            "Cantidad que te queda (aprox.)",
+                            "Coste medio (aprox.)",
+                        ]
+                    ],
                     use_container_width=True,
                     hide_index=True,
                 )
 
-    else:  # Activos & Detalles
-        st.markdown('<div class="card"><div class="ct">📦 Activos & 🔎 Detalles</div><div class="cs">Activos (si operaste) y la tabla completa para comprobar.</div></div>', unsafe_allow_html=True)
-        st.write("")
+                if PLOTLY_OK:
+                    top = assets.sort_values("Ganado / perdido ya cerrado", ascending=False).head(12)
+                    fig = px.bar(top, x="Ganado / perdido ya cerrado", y="Activo", orientation="h",
+                                 title="🏅 Top · Ganado/perdido ya cerrado")
+                    fig.update_layout(height=360, margin=dict(l=10, r=10, t=55, b=10))
+                    st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Activa 'Mostrar activos' en el panel lateral.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        a, b = st.columns([1.05, 0.95], gap="large")
-
-        with a:
-            st.markdown('<div class="card"><div class="ct">📦 Activos (si operaste)</div><div class="cs">Resultado ya cerrado y estimación de lo que queda.</div>', unsafe_allow_html=True)
-            if show_assets:
-                assets = compute_asset_realized_pnl(tx_f2)
-                if assets.empty:
-                    st.info("No veo operaciones de inversión suficientes en este rango.")
-                else:
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("Activos", f"{len(assets)}")
-                    c2.metric("Ganado/perdido ya cerrado", fmt_eur(assets["Ganado / perdido ya cerrado"].sum()))
-                    c3.metric("Dinero metido (compras)", fmt_eur(assets["Dinero metido (compras)"].sum()))
-
-                    st.dataframe(
-                        assets[
-                            [
-                                "Activo",
-                                "ISIN",
-                                "Dinero metido (compras)",
-                                "Dinero recuperado (ventas)",
-                                "Ganado / perdido ya cerrado",
-                                "Cantidad que te queda (aprox.)",
-                                "Coste medio (aprox.)",
-                            ]
-                        ],
-                        use_container_width=True,
-                        hide_index=True,
-                    )
-
-                    if PLOTLY_OK:
-                        top = assets.sort_values("Ganado / perdido ya cerrado", ascending=False).head(12)
-                        fig = px.bar(
-                            top,
-                            x="Ganado / perdido ya cerrado",
-                            y="Activo",
-                            orientation="h",
-                            title="🏅 Top · Ganado/perdido ya cerrado",
-                        )
-                        fig.update_layout(height=360, margin=dict(l=8, r=8, t=50, b=8))
-                        st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Activa 'Mostrar activos' en la barra lateral.")
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        with b:
-            st.markdown('<div class="card"><div class="ct">🔎 Detalles</div><div class="cs">Para verificar líneas exactas del PDF.</div>', unsafe_allow_html=True)
-            if show_details:
-                st.dataframe(
-                    tx_f2[["date", "type", "Categoria", "cashflow", "balance", "isin", "asset", "quantity", "desc"]],
-                    use_container_width=True,
-                    hide_index=True,
-                )
-            else:
-                st.info("Activa 'Ver tabla completa' en la barra lateral.")
-            st.markdown("</div>", unsafe_allow_html=True)
+    with colB:
+        st.markdown('<div class="glass soft"><div class="t">🔎 Detalles</div><div class="s">Tabla completa (solo si quieres comprobar líneas del PDF).</div>', unsafe_allow_html=True)
+        if show_details:
+            st.dataframe(
+                tx_f2[["date", "type", "Categoria", "cashflow", "balance", "isin", "asset", "quantity", "desc"]],
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.info("Activa 'Ver tabla completa' en el panel lateral.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
-# =========================
-# DESCARGA + NOTA
-# =========================
+# ==========================================================
+# DESCARGA + NOTA (igual)
+# ==========================================================
+st.write("")
 st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
+
 st.download_button(
     "⬇️ Descargar datos parseados (CSV)",
     data=tx_f2.to_csv(index=False).encode("utf-8"),
