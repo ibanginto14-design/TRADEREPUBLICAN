@@ -17,7 +17,7 @@ except Exception:
 
 
 # ==========================================================
-# CONFIG + "BANK APP" DESIGN (solo diseño: mismos datos/salidas)
+# CONFIG + "BANK APP" DESIGN (misma info, mejor legibilidad)
 # ==========================================================
 st.set_page_config(page_title="TR Bank · Mi dinero (PDF)", page_icon="🏦", layout="wide")
 
@@ -26,15 +26,19 @@ st.markdown(
 <style>
 /* =========================
    BANK APP THEME (Premium)
+   + FIXES: legibilidad + charts integrados
    ========================= */
 
 /* Layout */
 .block-container { padding-top: 1.0rem; padding-bottom: 2.2rem; max-width: 1320px; }
 
-/* Fondo "de banco": gradientes + grid + blobs */
+/* Forzamos color de texto legible en todo el documento */
 html, body, [data-testid="stAppViewContainer"]{
-  height: 100%;
+  color: rgba(245,248,255,0.92) !important;
 }
+
+/* Fondo "de banco": gradientes + grid + blobs */
+html, body, [data-testid="stAppViewContainer"]{ height: 100%; }
 [data-testid="stAppViewContainer"]{
   background:
     radial-gradient(1200px 700px at 12% 8%, rgba(120,160,255,0.22) 0%, rgba(0,0,0,0) 60%),
@@ -58,7 +62,7 @@ html, body, [data-testid="stAppViewContainer"]{
   opacity: 0.18;
 }
 
-/* Blobs animados (fondo más “vivo”) */
+/* Blobs animados */
 @keyframes floaty {
   0%   { transform: translate3d(0,0,0) scale(1); opacity: .65; }
   50%  { transform: translate3d(20px,-12px,0) scale(1.03); opacity: .78; }
@@ -74,6 +78,7 @@ html, body, [data-testid="stAppViewContainer"]{
   position: absolute;
   width: 540px;
   height: 540px;
+  filter: blur(42px reminding); /* harmless if ignored */
   filter: blur(42px);
   border-radius: 40% 60% 45% 55% / 55% 45% 55% 45%;
   animation: floaty 12s ease-in-out infinite;
@@ -83,21 +88,19 @@ html, body, [data-testid="stAppViewContainer"]{
 .blob.b2{ right: -180px; top: 40px; background: rgba(80,255,220,0.13); animation-duration: 16s; }
 .blob.b3{ left: 35%; bottom: -240px; background: rgba(255,120,200,0.10); animation-duration: 18s; }
 
-/* Sidebar como “panel bancario” */
+/* Sidebar tipo banca */
 section[data-testid="stSidebar"]{
   background: rgba(255,255,255,0.02) !important;
   border-right: 1px solid rgba(255,255,255,0.10);
   backdrop-filter: blur(10px);
 }
-section[data-testid="stSidebar"] > div{
-  padding-top: 1.1rem;
-}
+section[data-testid="stSidebar"] > div{ padding-top: 1.1rem; }
 
 /* Tipografía */
-h1,h2,h3{ letter-spacing: -0.4px; }
-p, li, label { line-height: 1.35; }
-.small { font-size: 12px; opacity: .78; }
-.muted { opacity: .82; }
+h1,h2,h3{ letter-spacing: -0.4px; color: rgba(245,248,255,0.96) !important; }
+p, li, label, .stMarkdown, .stMarkdown * { color: rgba(245,248,255,0.90) !important; }
+.small { font-size: 12px; opacity: .82; }
+.muted { opacity: .88; }
 
 /* Cards glass */
 .glass{
@@ -109,35 +112,23 @@ p, li, label { line-height: 1.35; }
   padding: 14px 14px;
   backdrop-filter: blur(12px);
 }
-.glass.soft{
-  background: rgba(255,255,255,0.028);
-}
-.glass .t{ font-weight: 900; letter-spacing: -0.3px; font-size: 15px; }
-.glass .s{ font-size: 12px; opacity: .78; margin-top: 4px; }
+.glass.soft{ background: rgba(255,255,255,0.028); }
+.glass .t{ font-weight: 900; letter-spacing: -0.3px; font-size: 15px; color: rgba(245,248,255,0.96) !important; }
+.glass .s{ font-size: 12px; opacity: .86; margin-top: 4px; }
 .hr{ height: 1px; background: rgba(255,255,255,0.10); margin: 14px 0; border-radius: 999px; }
 
 /* Header bank bar */
-.bankbar{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 12px;
-}
-.brand{
-  display:flex;
-  align-items:center;
-  gap: 10px;
-}
+.bankbar{ display:flex; align-items:center; justify-content:space-between; gap: 12px; }
+.brand{ display:flex; align-items:center; gap: 10px; }
 .brand .mark{
-  width: 40px; height: 40px;
-  border-radius: 14px;
+  width: 40px; height: 40px; border-radius: 14px;
   display:flex; align-items:center; justify-content:center;
   border: 1px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.05);
   font-size: 18px;
 }
-.brand .name{ font-weight: 950; font-size: 16px; letter-spacing:-0.3px; }
-.brand .tag{ font-size: 12px; opacity: .76; margin-top: 2px; }
+.brand .name{ font-weight: 950; font-size: 16px; letter-spacing:-0.3px; color: rgba(245,248,255,0.96) !important; }
+.brand .tag{ font-size: 12px; opacity: .86; margin-top: 2px; }
 
 .pills{ display:flex; flex-wrap:wrap; gap: 8px; justify-content:flex-end; }
 .pill{
@@ -147,6 +138,7 @@ p, li, label { line-height: 1.35; }
   border: 1px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.04);
   font-size: 12px;
+  color: rgba(245,248,255,0.92) !important;
 }
 
 /* KPI row */
@@ -159,9 +151,9 @@ p, li, label { line-height: 1.35; }
   padding: 12px 14px;
   backdrop-filter: blur(10px);
 }
-.kpi .kt{ font-size: 12px; opacity: .80; margin-bottom: 6px; }
-.kpi .kv{ font-size: 22px; font-weight: 950; letter-spacing:-0.5px; }
-.kpi .ks{ font-size: 12px; opacity: .70; margin-top: 6px; }
+.kpi .kt{ font-size: 12px; opacity: .86; margin-bottom: 6px; }
+.kpi .kv{ font-size: 22px; font-weight: 950; letter-spacing:-0.5px; color: rgba(245,248,255,0.98) !important; }
+.kpi .ks{ font-size: 12px; opacity: .78; margin-top: 6px; }
 
 /* Dataframe */
 div[data-testid="stDataFrame"]{
@@ -170,25 +162,43 @@ div[data-testid="stDataFrame"]{
   border: 1px solid rgba(255,255,255,0.10);
 }
 
-/* Tabs: más “bank-app” */
-.stTabs [data-baseweb="tab-list"]{
-  gap: 6px;
-}
+/* Tabs */
+.stTabs [data-baseweb="tab-list"]{ gap: 6px; }
 .stTabs [data-baseweb="tab"]{
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.10);
   border-radius: 12px;
   padding: 10px 12px;
+  color: rgba(245,248,255,0.92) !important;
 }
-.stTabs [aria-selected="true"]{
-  background: rgba(255,255,255,0.06);
-}
+.stTabs [aria-selected="true"]{ background: rgba(255,255,255,0.06); }
 
 /* Botones */
 .stButton > button, .stDownloadButton > button{
+  explains? /* ignored by browsers */
   border-radius: 14px !important;
   border: 1px solid rgba(255,255,255,0.14) !important;
   background: rgba(255,255,255,0.06) !important;
+  color: rgba(245,248,255,0.92) !important;
+}
+
+/* ALERTAS: hacemos que se lean bien en fondo oscuro */
+div[data-testid="stAlert"]{
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: rgba(245,248,255,0.92) !important;
+}
+div[data-testid="stAlert"] p, div[data-testid="stAlert"] span{
+  color: rgba(245,248,255,0.92) !notice;
+  color: rgba(245,248,255,0.92) !important;
+}
+
+/* FIX: plots dentro de cards (evitar “caja blanca” excesiva) */
+div[data-testid="stPlotlyChart"]{
+  border-radius: 16px;
+  overflow: hidden;
+  explain: none;
 }
 </style>
 
@@ -200,6 +210,51 @@ div[data-testid="stDataFrame"]{
 """,
     unsafe_allow_html=True,
 )
+
+# =========================
+# Helpers visual
+# =========================
+BANK_FONT = dict(
+    family="Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+    color="rgba(245,248,255,0.92)",
+)
+
+def _apply_plotly_bank_theme(fig):
+    """
+    Hace que los gráficos “se fundan” con el fondo glass:
+    - fondo transparente
+    - estilo dark
+    - tipografía y ejes con buen contraste
+    """
+    if fig is None:
+        return None
+    try:
+        fig.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=BANK_FONT,
+            title=dict(font=dict(size=16, color="rgba(245,248,255,0.96)")),
+            legend=dict(font=BANK_FONT),
+            margin=dict(l=10, r=10, t=60, b=10),
+        )
+        fig.update_xaxes(
+            gridcolor="rgba(255,255,255,0.10)",
+            zerolinecolor="rgba(255,255,255,0.10)",
+            linecolor="rgba(255,255,255,0.16)",
+            tickfont=BANK_FONT,
+            titlefont=BANK_FONT,
+        )
+        fig.update_yaxes(
+            gridcolor="rgba(255,255,255,0.10)",
+            zerolinecolor="rgba(255,255,255,0.10)",
+            linecolor="rgba(255,255,255,0.16)",
+            tickfont=BANK_FONT,
+            titlefont=BANK_FONT,
+        )
+    except Exception:
+        pass
+    return fig
 
 
 # =========================
@@ -539,15 +594,15 @@ def compute_asset_realized_pnl(tx: pd.DataFrame) -> pd.DataFrame:
 
 
 # =========================
-# GRÁFICOS (mismos tipos/datos)
+# GRÁFICOS (mismos tipos/datos) + THEME FIX
 # =========================
 def fig_in_out_net(total_in: float, total_out: float, net: float):
     if not PLOTLY_OK:
         return None
     df = pd.DataFrame({"Concepto": ["Entradas", "Salidas", "Neto"], "€": [total_in, total_out, net]})
     fig = px.bar(df, x="Concepto", y="€", title="⚖️ Entradas vs Salidas (y neto)")
-    fig.update_layout(height=320, margin=dict(l=10, r=10, t=55, b=10))
-    return fig
+    fig.update_layout(height=320)
+    return _apply_plotly_bank_theme(fig)
 
 
 def donut_outflows(by_cat: pd.Series, top_n: int = 8):
@@ -565,8 +620,9 @@ def donut_outflows(by_cat: pd.Series, top_n: int = 8):
         df = pd.concat([df, pd.DataFrame([{"Concepto": "Otros (resto)", "€": rest}])], ignore_index=True)
 
     fig = px.pie(df, names="Concepto", values="€", hole=0.62, title="🍩 Donut · Salidas")
-    fig.update_layout(height=330, margin=dict(l=10, r=10, t=55, b=10))
-    return fig
+    fig.update_traces(textfont=dict(color="rgba(245,248,255,0.92)"))
+    fig.update_layout(height=330)
+    return _apply_plotly_bank_theme(fig)
 
 
 def fig_balance_or_estimated(txg: pd.DataFrame):
@@ -583,8 +639,9 @@ def fig_balance_or_estimated(txg: pd.DataFrame):
         d2 = df.dropna(subset=["cashflow"]).copy()
         d2["Saldo estimado (desde 0)"] = d2["cashflow"].cumsum()
         fig = px.line(d2, x="date", y="Saldo estimado (desde 0)", title="📈 Evolución estimada (entradas/salidas)")
-    fig.update_layout(height=360, margin=dict(l=10, r=10, t=55, b=10))
-    return fig
+
+    fig.update_layout(height=360)
+    return _apply_plotly_bank_theme(fig)
 
 
 def fig_monthly_net(txg: pd.DataFrame):
@@ -605,12 +662,11 @@ def fig_monthly_net(txg: pd.DataFrame):
     fig.update_layout(
         title="📅 Mes a mes: neto y acumulado",
         height=360,
-        margin=dict(l=10, r=10, t=55, b=10),
         yaxis=dict(title="€ neto"),
         yaxis2=dict(title="€ acumulado", overlaying="y", side="right"),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
-    return fig, m
+    return _apply_plotly_bank_theme(fig), m
 
 
 def fig_timeline_bubbles(txg: pd.DataFrame):
@@ -632,8 +688,8 @@ def fig_timeline_bubbles(txg: pd.DataFrame):
         hover_data={"Categoria": True, "desc": True, "cashflow": ":.2f", "date": True, "Impacto_clip": False},
         title="🫧 Movimientos (puntos grandes = impacto grande)",
     )
-    fig.update_layout(height=390, margin=dict(l=10, r=10, t=55, b=10))
-    return fig
+    fig.update_layout(height=390)
+    return _apply_plotly_bank_theme(fig)
 
 
 def fig_stack_monthly_out_by_category(txg: pd.DataFrame, top_n: int = 8):
@@ -655,8 +711,8 @@ def fig_stack_monthly_out_by_category(txg: pd.DataFrame, top_n: int = 8):
 
     grp = out.groupby(["Mes", "Categoria2"])["€"].sum().reset_index()
     fig = px.bar(grp, x="Mes", y="€", color="Categoria2", title="📊 PRO · Gasto por mes (apilado por categoría)")
-    fig.update_layout(height=390, margin=dict(l=10, r=10, t=55, b=10))
-    return fig
+    fig.update_layout(height=390)
+    return _apply_plotly_bank_theme(fig)
 
 
 def biggest_moves_table(txg: pd.DataFrame, n: int = 12) -> pd.DataFrame:
@@ -688,7 +744,7 @@ with st.sidebar:
     </div>
   </div>
   <div class="hr"></div>
-  <div class="small muted">Sube tu extracto y te lo traduzco a “dinero real”: entradas, salidas y evolución.</div>
+  <div class="small muted">Sube tu extracto y te lo traduzco a dinero real: entradas, salidas y evolución.</div>
 </div>
 """,
         unsafe_allow_html=True,
@@ -750,7 +806,7 @@ tx["amount"] = pd.to_numeric(tx["amount"], errors="coerce")
 tx["Categoria"] = [category_simple(t, d) for t, d in zip(tx["type"].astype(str), tx["desc"].astype(str))]
 txg = tx.dropna(subset=["date"]).sort_values("date").copy()
 
-# Rango de fechas (igual, pero con UI bancaria)
+# Rango de fechas
 if not txg.empty:
     dmin = pd.to_datetime(txg["date"].min()).date()
     dmax = pd.to_datetime(txg["date"].max()).date()
@@ -839,7 +895,7 @@ st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
 
 
 # ==========================================================
-# CONTENIDO (mismo “qué” — nuevo “cómo”)
+# CONTENIDO (mismo “qué” — ahora con charts integrados)
 # ==========================================================
 if page == "Resumen":
     col1, col2 = st.columns([1.2, 0.8], gap="large")
@@ -961,8 +1017,8 @@ else:  # Activos & Detalles
                     top = assets.sort_values("Ganado / perdido ya cerrado", ascending=False).head(12)
                     fig = px.bar(top, x="Ganado / perdido ya cerrado", y="Activo", orientation="h",
                                  title="🏅 Top · Ganado/perdido ya cerrado")
-                    fig.update_layout(height=360, margin=dict(l=10, r=10, t=55, b=10))
-                    st.plotly_chart(fig, use_container_width=True)
+                    fig.update_layout(height=360)
+                    st.plotly_chart(_apply_plotly_bank_theme(fig), use_container_width=True)
         else:
             st.info("Activa 'Mostrar activos' en el panel lateral.")
         st.markdown("</div>", unsafe_allow_html=True)
